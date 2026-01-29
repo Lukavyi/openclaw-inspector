@@ -1,0 +1,7 @@
+node_modules/
+dist/
+progress.json
+sessions_table.csv
+sessions_table.md
+*.log
+.DS_Store

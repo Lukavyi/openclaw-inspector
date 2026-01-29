@@ -1,0 +1,110 @@
+{
+  "rules": [
+    {
+      "category": "destructive-fs",
+      "severity": "critical",
+      "label": "Destructive filesystem",
+      "patterns": [
+        "rm\\s+(-[a-zA-Z]*r[a-zA-Z]*|--recursive)",
+        "rm\\s+(-[a-zA-Z]*f[a-zA-Z]*)",
+        "rmdir\\s",
+        "shred\\s",
+        "unlink\\s",
+        "find\\s.*-delete",
+        "find\\s.*-exec\\s+rm"
+      ]
+    },
+    {
+      "category": "git-destructive",
+      "severity": "critical",
+      "label": "Git destructive",
+      "patterns": [
+        "git\\s+push\\s+(-[a-zA-Z]*f|--force)",
+        "git\\s+reset\\s+--hard",
+        "git\\s+clean\\s+(-[a-zA-Z]*f)",
+        "git\\s+checkout\\s+--\\s+\\.",
+        "git\\s+branch\\s+(-[a-zA-Z]*[dD])"
+      ]
+    },
+    {
+      "category": "repo-actions",
+      "severity": "critical",
+      "label": "Repo/account actions",
+      "patterns": [
+        "gh\\s+repo\\s+delete",
+        "gh\\s+repo\\s+edit\\s+--visibility\\s+public",
+        "gh\\s+issue\\s+delete",
+        "gh\\s+pr\\s+close"
+      ]
+    },
+    {
+      "category": "config-changes",
+      "severity": "warning",
+      "label": "Config changes",
+      "patterns": [
+        "\\b(nano|vim|vi|code|edit)\\s+.*\\.(env|json|ya?ml|toml|conf|cfg|ini)\\b",
+        "\\bsed\\s+(-[a-zA-Z]*i)",
+        "\\b(cat|echo|printf)\\s.*>\\s*.*\\.(env|json|ya?ml|toml|conf|cfg)",
+        "\\.ssh/",
+        "\\.gitconfig",
+        "\\.zshrc",
+        "\\.zprofile",
+        "\\.bashrc"
+      ]
+    },
+    {
+      "category": "package-system",
+      "severity": "warning",
+      "label": "Package/system changes",
+      "patterns": [
+        "brew\\s+(uninstall|remove)",
+        "npm\\s+(uninstall|remove)\\s+-g",
+        "pip\\s+uninstall",
+        "chmod\\s+(777|666|000)",
+        "chown\\s",
+        "sudo\\s"
+      ]
+    },
+    {
+      "category": "process-kill",
+      "severity": "warning",
+      "label": "Process killing",
+      "patterns": [
+        "kill\\s+(-9|-SIGKILL)",
+        "killall\\s",
+        "pkill\\s"
+      ]
+    },
+    {
+      "category": "secrets-network",
+      "severity": "warning",
+      "label": "Secrets/network",
+      "patterns": [
+        "curl\\s.*(-X\\s*POST|-d\\s)",
+        "(token|secret|password|api.?key)=\\S+",
+        "\\bexport\\s+(TOKEN|SECRET|API_KEY|PASSWORD)"
+      ]
+    },
+    {
+      "category": "cron-changes",
+      "severity": "warning",
+      "label": "Cron changes",
+      "patterns": [
+        "crontab\\s",
+        "launchctl\\s+(load|unload|remove)",
+        "systemctl\\s+(enable|disable|stop)"
+      ]
+    },
+    {
+      "category": "surveillance",
+      "severity": "warning",
+      "label": "Surveillance/privacy",
+      "toolRules": [
+        { "toolName": "browser", "actions": ["screenshot", "snapshot"] },
+        { "toolName": "nodes", "actions": ["camera_snap", "camera_clip", "camera_list", "screen_record", "location_get"] },
+        { "toolName": "image", "actions": null },
+        { "toolName": "peekaboo", "actions": null }
+      ]
+    }
+  ]
+}

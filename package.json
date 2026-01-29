@@ -1,0 +1,65 @@
+{
+  "name": "moltbot-inspector",
+  "version": "1.0.0",
+  "description": "Review every conversation your Moltbot has ever had — including deleted sessions — and flag dangerous actions it may have taken without your knowledge.",
+  "main": "server.js",
+  "bin": {
+    "moltbot-inspector": "server.js"
+  },
+  "files": [
+    "dist/",
+    "server.js",
+    "danger-rules.json",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "start": "node server.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "cypress run",
+    "test:e2e:open": "cypress open",
+    "prepublishOnly": "npm run build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Lukavyi/moltbot-inspector.git"
+  },
+  "keywords": [
+    "moltbot",
+    "clawdbot",
+    "inspector",
+    "session-viewer",
+    "security",
+    "audit",
+    "ai-agent",
+    "cli"
+  ],
+  "author": "Taras Lukavyi",
+  "license": "MIT",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/Lukavyi/moltbot-inspector/issues"
+  },
+  "homepage": "https://github.com/Lukavyi/moltbot-inspector#readme",
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/react": "^19.2.10",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.2",
+    "cypress": "^15.9.0",
+    "jsdom": "^27.4.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.1",
+    "vitest": "^4.0.18"
+  }
+}

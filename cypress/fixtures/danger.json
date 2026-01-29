@@ -1,0 +1,11 @@
+{
+  "abc12345-topic-my-project.jsonl": [
+    {
+      "msgId": "msg-4",
+      "command": "exec: rm -rf /tmp/dangerous-dir",
+      "category": "destructive-fs",
+      "severity": "critical",
+      "label": "Destructive filesystem"
+    }
+  ]
+}

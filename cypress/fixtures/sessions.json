@@ -1,0 +1,32 @@
+[
+  {
+    "filename": "abc12345-topic-my-project.jsonl",
+    "size": 5000,
+    "mtime": 1720000000000,
+    "createdAt": "2024-07-01T10:00:00Z",
+    "sessionId": "abc12345",
+    "deleted": false,
+    "status": "active",
+    "label": "My Project Session"
+  },
+  {
+    "filename": "def67890.jsonl",
+    "size": 3000,
+    "mtime": 1719000000000,
+    "createdAt": "2024-06-20T08:00:00Z",
+    "sessionId": "def67890",
+    "deleted": false,
+    "status": "orphan",
+    "label": ""
+  },
+  {
+    "filename": "ghi11111.deleted.99999",
+    "size": 1000,
+    "mtime": 1718000000000,
+    "createdAt": "2024-06-10T06:00:00Z",
+    "sessionId": "ghi11111",
+    "deleted": true,
+    "status": "deleted",
+    "label": "Old Deleted"
+  }
+]

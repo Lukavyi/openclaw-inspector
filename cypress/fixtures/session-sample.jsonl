@@ -1,0 +1,8 @@
+{"type":"session","id":"abc12345","sessionId":"abc12345","timestamp":"2024-07-01T10:00:00Z","cwd":"/home/user/project"}
+{"type":"message","id":"msg-1","timestamp":"2024-07-01T10:00:01Z","message":{"role":"user","content":[{"type":"text","text":"Hello, please help me with my project"}]}}
+{"type":"message","id":"msg-2","timestamp":"2024-07-01T10:00:05Z","message":{"role":"assistant","content":[{"type":"thinking","thinking":"Let me think about this..."},{"type":"text","text":"Sure! I'd be happy to help. Let me look at your files."},{"type":"toolCall","name":"exec","input":{"command":"ls -la"}}],"usage":{"input":100,"output":50,"totalTokens":150}}}
+{"type":"message","id":"msg-3","timestamp":"2024-07-01T10:00:10Z","message":{"role":"toolResult","toolName":"exec","content":[{"text":"total 8\ndrwxr-xr-x 2 user user 4096 Jul  1 10:00 .\n-rw-r--r-- 1 user user  100 Jul  1 10:00 file.txt"}]}}
+{"type":"message","id":"msg-4","timestamp":"2024-07-01T10:00:15Z","message":{"role":"assistant","content":[{"type":"text","text":"I can see your files. Let me make a change."},{"type":"toolCall","name":"exec","input":{"command":"rm -rf /tmp/dangerous-dir"}}]}}
+{"type":"message","id":"msg-5","timestamp":"2024-07-01T10:00:20Z","message":{"role":"user","content":[{"type":"text","text":"Thanks for the help!"}]}}
+{"type":"model_change","modelId":"claude-3-opus"}
+{"type":"message","id":"msg-6","timestamp":"2024-07-01T10:00:30Z","message":{"role":"assistant","content":[{"type":"text","text":"You're welcome! Is there anything else?"}]}}
