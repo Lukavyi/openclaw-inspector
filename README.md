@@ -61,7 +61,21 @@ Rules are fully customizable — edit `~/.moltbot-inspector/danger-rules.json`.
 - **Mobile responsive** — works on phones and tablets
 - **State persistence** — all filters, sort order, and UI state saved in localStorage
 
-> ⚠️ **Non-destructive & read-only.** Inspector never modifies, deletes, or interferes with your sessions. It only reads JSONL files from disk. Think of it as a security camera for your bot — it watches and highlights, but never touches anything.
+## Live monitoring
+
+Inspector watches your sessions directory in real-time. When your bot starts a new conversation, receives a message, or runs a tool — it appears instantly in the UI. No need to refresh the page.
+
+- New sessions appear in the sidebar automatically
+- New messages stream into the currently open session
+- Toast notifications show activity in other sessions
+- Works for background sessions, cron jobs, and sub-agents too
+
+## Privacy & security
+
+- 🔒 **100% local** — everything runs on your machine. No cloud, no telemetry, no external connections
+- 📁 **Read-only** — Inspector never modifies, deletes, or interferes with your sessions. It only reads JSONL files from disk
+- 🏠 **Localhost only** — server binds to `127.0.0.1` by default, inaccessible from the network
+- 💾 **Your data stays yours** — progress and settings stored in `~/.moltbot-inspector/`, never sent anywhere
 
 ## Configuration
 

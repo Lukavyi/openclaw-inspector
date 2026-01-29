@@ -128,7 +128,7 @@ export default React.memo(function Message({ entry, isRead, dangerOnly, fileDang
     <div className={`msg ${role}${isRead ? ' read' : ''}`}>
       <div className="msg-row">
       {!dangerOnly && role === 'user' && (
-        <button className="mark-read-btn" onClick={handleClick}>Read to here</button>
+        <button className="mark-read-btn" onClick={handleClick}>Checked to here</button>
       )}
       <div className={bubbleClass}>
         {time && <div className="time">{time}</div>}
@@ -184,7 +184,7 @@ export default React.memo(function Message({ entry, isRead, dangerOnly, fileDang
         })()}
       </div>
       {!dangerOnly && role !== 'user' && (
-        <button className="mark-read-btn" onClick={handleClick}>Read to here</button>
+        <button className="mark-read-btn" onClick={handleClick}>Checked to here</button>
       )}
       </div>
     </div>
