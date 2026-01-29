@@ -6,9 +6,13 @@ import { join, extname, resolve } from "node:path";
 import { homedir } from "node:os";
 
 const PORT = parseInt(process.env.PORT || "9100", 10);
-const SESSIONS_DIR =
-  process.env.SESSIONS_DIR ||
-  join(homedir(), ".clawdbot", "agents", "main", "sessions");
+const SESSIONS_DIR = process.env.SESSIONS_DIR || (() => {
+  const moltbot = join(homedir(), ".moltbot", "agents", "main", "sessions");
+  const clawdbot = join(homedir(), ".clawdbot", "agents", "main", "sessions");
+  if (existsSync(moltbot)) return moltbot;
+  if (existsSync(clawdbot)) return clawdbot;
+  return moltbot; // default to .moltbot
+})();
 const PROJECT_DIR = new URL(".", import.meta.url).pathname;
 const STATIC_DIR = join(new URL(".", import.meta.url).pathname, "dist");
 const DATA_DIR = process.env.DATA_DIR || join(homedir(), ".moltbot-inspector");

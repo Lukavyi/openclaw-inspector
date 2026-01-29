@@ -85,7 +85,7 @@ Inspector watches your sessions directory in real-time. When your bot starts a n
 |----------|---------|-------------|
 | `PORT` | `9100` | Server port |
 | `HOST` | `127.0.0.1` | Bind address (localhost only by default) |
-| `SESSIONS_DIR` | `~/.clawdbot/agents/main/sessions` | Path to session JSONL files |
+| `SESSIONS_DIR` | auto-detect (`~/.moltbot/` or `~/.clawdbot/`) | Path to session JSONL files |
 | `DATA_DIR` | `~/.moltbot-inspector` | User config and progress storage |
 
 ### User data (`~/.moltbot-inspector/`)
