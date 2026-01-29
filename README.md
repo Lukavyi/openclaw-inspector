@@ -1,71 +1,118 @@
 # Moltbot Inspector 🔍
 
-Moltbot is incredibly powerful — it can run shell commands, edit files, manage git repos, install packages, and do pretty much anything on your machine. But sometimes it can go off the rails, and you might never even know about it.
+**Your AI agent has full access to your machine. Are you sure it's behaving?**
 
-**Moltbot Inspector** is a local web app built with **React + Vite** that lets you review every conversation your bot has ever had — including deleted sessions — and flag dangerous actions it may have taken without your knowledge.
+[Moltbot](https://molt.bot) (and Clawdbot) can run shell commands, edit files, push to git, install packages, access your camera, take screenshots — essentially do *anything* on your system. It runs autonomously in background sessions, cron jobs, and sub-agents. Most of the time, you never see what it does.
 
-> ⚠️ **Non-destructive & read-only.** Inspector runs alongside Moltbot and has zero impact on your sessions. It never modifies, deletes, or interferes with any conversations — it only reads the JSONL session files from disk. Think of it as a security camera for your bot: it watches, highlights dangerous actions, and tracks your review progress, but never touches anything.
+**Moltbot Inspector** lets you see everything. It's a local web app that reads your bot's session history and shows you exactly what happened — every command, every file edit, every tool call. It automatically flags dangerous actions so you can catch problems before they escalate.
 
-## What it does
+## When you need this
 
-- **Browse all sessions** — active, orphaned, and soft-deleted
-- **Danger detection** — automatically scans for risky commands (`rm -rf`, `git push --force`, `git reset --hard`, config edits, `sudo`, etc.) and highlights them with red/yellow borders
-- **Read progress tracking** — click any message to mark everything above as reviewed; blue divider shows where you left off
-- **Live updates via SSE** — new messages and sessions appear automatically with toast notifications
-- **localStorage persistence** — active session, filter, sort, search query, expand state, and danger-only mode are all preserved across page reloads
-- **Session renaming** — click session title to give it a custom label
-- **Mobile responsive** — sidebar as overlay with FAB toggle button
-- **Message search** — filter messages by text content
-- **Expand/collapse all** — toggle all tool calls and thinking blocks at once
-- **Danger-only mode** — view only flagged messages (blocks marking in this mode)
+- 🤔 **"What did my bot do while I was away?"** — Browse all sessions including deleted ones
+- 🚨 **"Did it run anything dangerous?"** — Auto-detects `rm -rf`, `git push --force`, `sudo`, config edits, secret exposure, and more
+- 📱 **"Did it access my camera/screen?"** — Flags surveillance actions (screenshots, camera, location tracking)
+- 📊 **"I have 100+ sessions, how do I review them all?"** — Track read progress, filter by status, mark sessions as reviewed
+- 🔄 **"I want to monitor in real-time"** — Live updates via SSE, toast notifications for new messages
 
-## Setup
+## Quick start
 
 ```bash
-npm install
+npx moltbot-inspector
 ```
 
-## Development
+Opens at http://localhost:9100. That's it.
 
-Run the backend server and Vite dev server:
+### Custom port
 
 ```bash
-# Terminal 1: Backend (port 9100)
-node server.js
-
-# Terminal 2: Vite dev server (port 5173, proxies /api to backend)
-npm run dev
+PORT=9101 npx moltbot-inspector
 ```
 
-Open http://localhost:5173
-
-## Production Build
+### Custom sessions directory
 
 ```bash
-npm run build
+SESSIONS_DIR=~/.moltbot/agents/main/sessions npx moltbot-inspector
 ```
 
-This produces a `dist/` folder. To serve it, either:
-1. Point your backend's static file serving to `dist/` instead of the project root
-2. Use any static file server to serve `dist/` and proxy `/api` to the backend
+## What it detects
+
+| Category | Examples | Severity |
+|----------|----------|----------|
+| **Destructive filesystem** | `rm -rf`, `shred`, `find -delete` | 🔴 Critical |
+| **Git destructive** | `git push --force`, `git reset --hard`, `git clean -f` | 🔴 Critical |
+| **Repo/account actions** | `gh repo delete`, `gh repo edit --visibility public` | 🔴 Critical |
+| **Config changes** | `sed -i`, writing to `.env`, `.ssh/`, `.zshrc` | 🟡 Warning |
+| **Package/system** | `sudo`, `brew uninstall`, `chmod 777` | 🟡 Warning |
+| **Process killing** | `kill -9`, `killall`, `pkill` | 🟡 Warning |
+| **Secrets/network** | `curl -X POST`, exported tokens/passwords | 🟡 Warning |
+| **Surveillance** | Screenshots, camera access, screen recording, location | 🟡 Warning |
+| **Cron changes** | `crontab`, `launchctl`, `systemctl` | 🟡 Warning |
+
+Rules are fully customizable — edit `~/.moltbot-inspector/danger-rules.json`.
+
+## Features
+
+- **Multi-axis filtering** — filter by review status (unread/in progress/reviewed), session type (active/orphan/deleted), and danger level — all combinable
+- **Read progress tracking** — click any message to mark everything up to that point as reviewed; a blue divider shows where you left off
+- **Live updates** — new messages and sessions appear automatically with toast notifications
+- **Tool call previews** — see URLs, file paths, search queries, and commands inline without expanding
+- **Session renaming** — click the title to give any session a custom label
+- **Message search** — full-text search within a session
+- **Mobile responsive** — works on phones and tablets
+- **State persistence** — all filters, sort order, and UI state saved in localStorage
+
+> ⚠️ **Non-destructive & read-only.** Inspector never modifies, deletes, or interferes with your sessions. It only reads JSONL files from disk. Think of it as a security camera for your bot — it watches and highlights, but never touches anything.
 
 ## Configuration
 
 ### Environment variables
 
-- `SESSIONS_DIR` — path to session JSONL files (default: `~/.clawdbot/agents/main/sessions`)
-- `PORT` — backend port (default: `9100`)
-- `DATA_DIR` — path to user data (default: `~/.moltbot-inspector`)
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PORT` | `9100` | Server port |
+| `HOST` | `127.0.0.1` | Bind address (localhost only by default) |
+| `SESSIONS_DIR` | `~/.clawdbot/agents/main/sessions` | Path to session JSONL files |
+| `DATA_DIR` | `~/.moltbot-inspector` | User config and progress storage |
 
 ### User data (`~/.moltbot-inspector/`)
 
-On first launch, Inspector creates `~/.moltbot-inspector/` and copies the default `danger-rules.json` there. You can customize the rules — they won't be overwritten on updates.
+Created automatically on first launch:
 
-- `danger-rules.json` — danger detection rules (regex patterns + tool-based rules)
-- `progress.json` — read progress (server-side, persists across devices)
+- `danger-rules.json` — danger detection rules (customize freely, won't be overwritten on updates)
+- `progress.json` — read progress (persists across devices if you sync the folder)
 
-## Files
+### Remote access via Tailscale
 
-- `server.js` — Node.js backend with SSE, session APIs, danger scanning
-- `danger-rules.json` — default danger rules (copied to `~/.moltbot-inspector/` on first run)
-- `src/` — React + TypeScript application source
+To access Inspector from your phone or another device:
+
+```bash
+# Serve local port via Tailscale HTTPS
+tailscale serve https:9100 / http://localhost:9100
+```
+
+Then open `https://your-machine.tailnet.ts.net:9100` from any device on your tailnet.
+
+## Development
+
+```bash
+git clone https://github.com/Lukavyi/moltbot-inspector.git
+cd moltbot-inspector
+npm install
+
+# Terminal 1: Backend
+node server.js
+
+# Terminal 2: Vite dev server with HMR
+npm run dev
+```
+
+Open http://localhost:5173 (proxies API to backend).
+
+```bash
+npm test          # Unit tests (Vitest)
+npm run build     # Production build → dist/
+```
+
+## License
+
+MIT
