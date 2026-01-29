@@ -4,6 +4,7 @@ import { createServer } from "node:http";
 import { readFileSync, writeFileSync, readdirSync, statSync, watch, existsSync, mkdirSync, copyFileSync } from "node:fs";
 import { join, extname, resolve } from "node:path";
 import { homedir } from "node:os";
+import { execSync } from "node:child_process";
 
 const PORT = parseInt(process.env.PORT || "9100", 10);
 const SESSIONS_DIR = process.env.SESSIONS_DIR || (() => {
@@ -25,11 +26,37 @@ try {
   console.error("   Set DATA_DIR env to a writable path.");
   process.exit(1);
 }
+// Ensure DATA_DIR is a git repo
+try {
+  if (!existsSync(join(DATA_DIR, ".git"))) {
+    execSync("git init", { cwd: DATA_DIR, stdio: "ignore" });
+    console.log(`🗂️  Initialized git repo in ${DATA_DIR}`);
+  }
+} catch (e) {
+  console.error(`⚠️  Could not init git in ${DATA_DIR}: ${e.message}`);
+}
+
+function gitCommitProgress(message) {
+  try {
+    execSync("git add progress.json danger-rules.json", { cwd: DATA_DIR, stdio: "ignore" });
+    execSync(`git diff --cached --quiet`, { cwd: DATA_DIR, stdio: "ignore" });
+    // If we reach here, nothing staged — skip commit
+  } catch {
+    // diff --quiet exits 1 when there are staged changes — commit
+    try {
+      execSync(`git commit -m ${JSON.stringify(message)}`, { cwd: DATA_DIR, stdio: "ignore" });
+    } catch {}
+  }
+}
+
 const defaultRulesPath = join(PROJECT_DIR, "danger-rules.json");
 const userRulesPath = join(DATA_DIR, "danger-rules.json");
 if (!existsSync(userRulesPath) && existsSync(defaultRulesPath)) {
   copyFileSync(defaultRulesPath, userRulesPath);
 }
+// Initial commit if files exist but not yet tracked
+gitCommitProgress("init: initial state");
+
 const CSV_PATH =
   process.env.CSV_PATH || join(new URL(".", import.meta.url).pathname, "sessions_table.csv");
 
@@ -379,6 +406,9 @@ const server = createServer((req, res) => {
         writeFileSync(progressPath, body, "utf-8");
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end('{"ok":true}');
+        // Git commit async (don't block response)
+        const now = new Date().toISOString().replace('T', ' ').slice(0, 19);
+        gitCommitProgress(`review: ${now}`);
       } catch {
         res.writeHead(400);
         res.end("Invalid JSON");

@@ -77,18 +77,21 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sa
 
 /* Messages */
 .messages { flex: 1; overflow: hidden; position: relative; min-height: 0; }
-.messages [data-virtuoso-scroller] { padding: 20px 24px; }
+.messages [data-virtuoso-scroller] { overflow-x: hidden !important; }
+.messages [data-item-index] { padding: 0 24px; }
+.messages [data-item-index]:first-child { padding-top: 20px; }
+.messages [data-item-index]:last-child { padding-bottom: 20px; }
 .msg { margin-bottom: 16px; cursor: pointer; transition: opacity 0.2s; }
 .msg.read { opacity: 0.45; }
 .msg:hover { opacity: 1 !important; }
 .msg { position: relative; }
-.msg-row { display: inline-flex; align-items: center; gap: 12px; max-width: 70%; }
+.msg-row { display: inline-flex; align-items: center; gap: 12px; max-width: 70%; overflow: hidden; }
 .mark-read-btn { display: none; flex-shrink: 0; border-radius: 12px; border: 1px solid #ddd; background: #fff; color: #4f46e5; font-size: 11px; cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,0.1); transition: all 0.15s; padding: 4px 8px; white-space: nowrap; font-family: inherit; }
 .mark-read-btn:hover { background: #4f46e5; color: #fff; border-color: #4f46e5; }
 .msg:hover .mark-read-btn { display: block; }
 .msg.user { display: flex; justify-content: flex-end; }
 .msg.assistant { display: flex; justify-content: flex-start; }
-.bubble { padding: 12px 16px; border-radius: 12px; font-size: 14px; min-width: 0; }
+.bubble { padding: 12px 16px; border-radius: 12px; font-size: 14px; min-width: 0; max-width: 100%; overflow-wrap: anywhere; word-break: break-word; }
 .msg.user .bubble { background: #4f46e5; color: #fff; border-bottom-right-radius: 4px; }
 .msg.assistant .bubble { background: #fff; border: 1px solid #e5e5e5; color: #1a1a1a; border-bottom-left-radius: 4px; }
 .bubble .time { font-size: 11px; opacity: 0.5; margin-bottom: 4px; }
