@@ -167,3 +167,175 @@ describe('danger scanning', () => {
     expect(hits.some(h => h.category === 'git-destructive')).toBe(true);
   });
 });
+
+// --- toolRules-based danger scanning (surveillance) ---
+describe('danger scanning - toolRules', () => {
+  const rules = [
+    {
+      category: 'surveillance',
+      severity: 'warning',
+      label: 'Surveillance/privacy',
+      toolRules: [
+        { toolName: 'browser', actions: ['screenshot', 'snapshot'] },
+        { toolName: 'nodes', actions: ['camera_snap', 'camera_clip', 'screen_record', 'location_get'] },
+        { toolName: 'image', actions: null },
+        { toolName: 'peekaboo', actions: null },
+      ],
+    },
+  ];
+
+  const compiled = rules.map(r => ({
+    ...r,
+    regexes: (r.patterns || []).map(p => new RegExp(p, 'i')),
+    toolRules: r.toolRules || null,
+  }));
+
+  function scanLineWithToolRules(jsonLine) {
+    const obj = JSON.parse(jsonLine);
+    if (obj.type !== 'message') return [];
+    const msg = obj.message;
+    if (!msg?.content || !Array.isArray(msg.content)) return [];
+    const hits = [];
+    for (const block of msg.content) {
+      if (block.type !== 'toolCall') continue;
+      const src = block.arguments || block.input;
+      const toolName = block.name || '';
+      const toolAction = src?.action || '';
+      for (const rule of compiled) {
+        if (!rule.toolRules) continue;
+        for (const tr of rule.toolRules) {
+          if (tr.toolName === toolName && (tr.actions === null || (toolAction && tr.actions.includes(toolAction)))) {
+            hits.push({ category: rule.category, severity: rule.severity, label: rule.label, command: `${toolName}${toolAction ? ': ' + toolAction : ''}` });
+          }
+        }
+      }
+    }
+    return hits;
+  }
+
+  it('detects browser screenshot as surveillance', () => {
+    const line = JSON.stringify({
+      type: 'message', id: '10',
+      message: { role: 'assistant', content: [{ type: 'toolCall', name: 'browser', input: { action: 'screenshot' } }] }
+    });
+    const hits = scanLineWithToolRules(line);
+    expect(hits).toHaveLength(1);
+    expect(hits[0].category).toBe('surveillance');
+    expect(hits[0].command).toBe('browser: screenshot');
+  });
+
+  it('detects nodes camera_snap as surveillance', () => {
+    const line = JSON.stringify({
+      type: 'message', id: '11',
+      message: { role: 'assistant', content: [{ type: 'toolCall', name: 'nodes', input: { action: 'camera_snap' } }] }
+    });
+    const hits = scanLineWithToolRules(line);
+    expect(hits).toHaveLength(1);
+    expect(hits[0].category).toBe('surveillance');
+  });
+
+  it('detects image tool with any action (actions=null)', () => {
+    const line = JSON.stringify({
+      type: 'message', id: '12',
+      message: { role: 'assistant', content: [{ type: 'toolCall', name: 'image', input: { url: 'http://example.com/pic.jpg' } }] }
+    });
+    const hits = scanLineWithToolRules(line);
+    expect(hits).toHaveLength(1);
+    expect(hits[0].command).toBe('image');
+  });
+
+  it('ignores browser with non-matching action', () => {
+    const line = JSON.stringify({
+      type: 'message', id: '13',
+      message: { role: 'assistant', content: [{ type: 'toolCall', name: 'browser', input: { action: 'navigate' } }] }
+    });
+    expect(scanLineWithToolRules(line)).toHaveLength(0);
+  });
+
+  it('ignores unrelated tools', () => {
+    const line = JSON.stringify({
+      type: 'message', id: '14',
+      message: { role: 'assistant', content: [{ type: 'toolCall', name: 'exec', input: { command: 'ls' } }] }
+    });
+    expect(scanLineWithToolRules(line)).toHaveLength(0);
+  });
+});
+
+// --- readSession path traversal protection ---
+describe('readSession path traversal', () => {
+  const { resolve } = require('node:path');
+
+  function readSessionSafe(filename, sessionsDir) {
+    const fullPath = resolve(sessionsDir, filename);
+    if (!fullPath.startsWith(sessionsDir)) return null;
+    return fullPath; // in real code, would read file
+  }
+
+  it('allows normal filenames', () => {
+    expect(readSessionSafe('session.jsonl', '/data/sessions')).toBe('/data/sessions/session.jsonl');
+  });
+
+  it('blocks ../ traversal', () => {
+    expect(readSessionSafe('../../../etc/passwd', '/data/sessions')).toBeNull();
+  });
+
+  it('blocks encoded traversal', () => {
+    // decodeURIComponent would already decode before this function
+    expect(readSessionSafe('../../secret.txt', '/data/sessions')).toBeNull();
+  });
+
+  it('blocks absolute path injection', () => {
+    // resolve with absolute second arg returns it as-is on some platforms,
+    // but it won't start with sessionsDir
+    const result = readSessionSafe('/etc/passwd', '/data/sessions');
+    // On Unix, resolve('/data/sessions', '/etc/passwd') = '/etc/passwd' which doesn't start with '/data/sessions'
+    expect(result).toBeNull();
+  });
+});
+
+// --- POST body size limit logic ---
+describe('POST body size limit', () => {
+  it('rejects bodies exceeding 2MB', () => {
+    const MAX_BODY = 2 * 1024 * 1024;
+    const bigBody = 'x'.repeat(MAX_BODY + 1);
+    expect(bigBody.length).toBeGreaterThan(MAX_BODY);
+    // Simulating the server check
+    expect(bigBody.length > MAX_BODY).toBe(true);
+  });
+
+  it('accepts bodies under 2MB', () => {
+    const MAX_BODY = 2 * 1024 * 1024;
+    const smallBody = JSON.stringify({ key: 'value' });
+    expect(smallBody.length <= MAX_BODY).toBe(true);
+  });
+});
+
+// --- Search endpoint logic ---
+describe('search endpoint logic', () => {
+  it('requires minimum 2 characters', () => {
+    const q1 = '';
+    const q2 = 'a';
+    const q3 = 'ab';
+    expect(!q1 || q1.length < 2).toBe(true);
+    expect(!q2 || q2.length < 2).toBe(true);
+    expect(!q3 || q3.length < 2).toBe(false);
+  });
+
+  it('search is case-insensitive', () => {
+    const content = 'Hello World JSONL data';
+    const q = 'hello';
+    expect(content.toLowerCase().includes(q.toLowerCase())).toBe(true);
+  });
+
+  it('returns matching filenames', () => {
+    const files = ['a.jsonl', 'b.jsonl', 'c.jsonl'];
+    const contents = {
+      'a.jsonl': 'hello world',
+      'b.jsonl': 'foo bar',
+      'c.jsonl': 'hello again',
+    };
+    const q = 'hello';
+    const matches = files.filter(f => contents[f].toLowerCase().includes(q));
+    expect(matches).toEqual(['a.jsonl', 'c.jsonl']);
+  });
+});

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { formatDate, shortName, progressKey, parseCSV, matchesFilter, sortSessions } from '../src/utils.js';
+import { formatDate, shortName, progressKey, parseCSV, matchesFilter, matchesFilters, sortSessions } from '../src/utils.js';
 
 // --- formatDate ---
 describe('formatDate', () => {
@@ -187,5 +187,77 @@ describe('sortSessions', () => {
     const copy = [...sessions];
     sortSessions(sessions, 'created-desc', progress);
     expect(sessions).toEqual(copy);
+  });
+});
+
+// --- matchesFilters (multi-axis) ---
+describe('matchesFilters', () => {
+  const base = { Filename: 'test.jsonl', SessionId: 'sid', Reason: '', Disk: '' };
+  const allFilters = { read: 'all', lifecycle: [], dangerOnly: false };
+
+  it('passes everything with default filters', () => {
+    expect(matchesFilters(base, allFilters, {}, {})).toBe(true);
+  });
+
+  // Read axis
+  it('read=unread: excludes sessions with lastReadId', () => {
+    const filters = { ...allFilters, read: 'unread' };
+    expect(matchesFilters(base, filters, {}, {})).toBe(true);
+    expect(matchesFilters(base, filters, { sid: { lastReadId: 'x' } }, {})).toBe(false);
+  });
+
+  it('read=partial: requires lastReadId but not readAll', () => {
+    const filters = { ...allFilters, read: 'partial' };
+    expect(matchesFilters(base, filters, { sid: { lastReadId: 'x' } }, {})).toBe(true);
+    expect(matchesFilters(base, filters, { sid: { lastReadId: 'x', readAll: true } }, {})).toBe(false);
+    expect(matchesFilters(base, filters, {}, {})).toBe(false);
+  });
+
+  it('read=done: requires readAll', () => {
+    const filters = { ...allFilters, read: 'done' };
+    expect(matchesFilters(base, filters, { sid: { readAll: true } }, {})).toBe(true);
+    expect(matchesFilters(base, filters, {}, {})).toBe(false);
+  });
+
+  // Lifecycle axis
+  it('lifecycle=[active]: only matches active sessions', () => {
+    const filters = { ...allFilters, lifecycle: ['active'] };
+    expect(matchesFilters({ ...base, Reason: 'active' }, filters, {}, {})).toBe(true);
+    expect(matchesFilters({ ...base, Reason: 'orphan' }, filters, {}, {})).toBe(false);
+  });
+
+  it('lifecycle=[orphan,deleted]: matches either', () => {
+    const filters = { ...allFilters, lifecycle: ['orphan', 'deleted'] };
+    expect(matchesFilters({ ...base, Reason: 'orphan' }, filters, {}, {})).toBe(true);
+    expect(matchesFilters({ ...base, Reason: 'deleted' }, filters, {}, {})).toBe(true);
+    expect(matchesFilters({ ...base, Disk: 'DEL' }, filters, {}, {})).toBe(true);
+    expect(matchesFilters({ ...base, Reason: 'active' }, filters, {}, {})).toBe(false);
+  });
+
+  it('empty lifecycle matches everything', () => {
+    const filters = { ...allFilters, lifecycle: [] };
+    expect(matchesFilters({ ...base, Reason: 'active' }, filters, {}, {})).toBe(true);
+    expect(matchesFilters({ ...base, Reason: 'orphan' }, filters, {}, {})).toBe(true);
+  });
+
+  // Danger axis
+  it('dangerOnly filters to dangerous sessions', () => {
+    const filters = { ...allFilters, dangerOnly: true };
+    expect(matchesFilters(base, filters, {}, { 'test.jsonl': [{ severity: 'critical' }] })).toBe(true);
+    expect(matchesFilters(base, filters, {}, {})).toBe(false);
+  });
+
+  // Combined (AND logic)
+  it('combines read + lifecycle + danger with AND', () => {
+    const filters = { read: 'unread', lifecycle: ['active'], dangerOnly: true };
+    const activeRow = { ...base, Reason: 'active' };
+    // Unread + active + dangerous = pass
+    expect(matchesFilters(activeRow, filters, {}, { 'test.jsonl': [{}] })).toBe(true);
+    // Has progress (not unread) = fail
+    expect(matchesFilters(activeRow, filters, { sid: { lastReadId: 'x' } }, { 'test.jsonl': [{}] })).toBe(false);
+    // Not active = fail
+    expect(matchesFilters({ ...base, Reason: 'orphan' }, filters, {}, { 'test.jsonl': [{}] })).toBe(false);
+    // Not dangerous = fail
+    expect(matchesFilters(activeRow, filters, {}, {})).toBe(false);
   });
 });
