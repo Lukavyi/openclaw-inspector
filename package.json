@@ -1,6 +1,6 @@
 {
   "name": "moltbot-inspector",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Review every conversation your Moltbot has ever had — including deleted sessions — and flag dangerous actions it may have taken without your knowledge.",
   "main": "server.js",
   "bin": {
