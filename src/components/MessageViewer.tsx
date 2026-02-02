@@ -89,20 +89,31 @@ export default function MessageViewer({
   const initialScrollDone = useRef(false);
   useEffect(() => {
     initialScrollDone.current = false;
+    prevEntriesLen.current = 0;
+    setAtBottom(false);
+    setShowNewBtn(false);
   }, [filename]);
 
   useEffect(() => {
     if (initialScrollDone.current) return;
-    if (lastReadIndex >= 0 && visibleEntries.length > 0) {
+    if (visibleEntries.length > 0) {
       initialScrollDone.current = true;
-      setTimeout(() => {
-        virtuosoRef.current?.scrollToIndex({ index: lastReadIndex, align: 'center', behavior: 'smooth' });
-      }, 100);
+      if (lastReadIndex >= 0) {
+        setTimeout(() => {
+          virtuosoRef.current?.scrollToIndex({ index: lastReadIndex, align: 'center', behavior: 'auto' });
+        }, 50);
+      } else {
+        // No last-read — scroll to top
+        setTimeout(() => {
+          virtuosoRef.current?.scrollToIndex({ index: 0, behavior: 'auto' });
+        }, 50);
+      }
     }
   }, [lastReadIndex, visibleEntries, filename]);
 
   // Handle new entries: auto-scroll or show button
   useEffect(() => {
+    if (!initialScrollDone.current) return; // don't interfere with initial scroll
     const newLen = visibleEntries.length;
     if (newLen > prevEntriesLen.current && prevEntriesLen.current > 0) {
       if (atBottom) {
