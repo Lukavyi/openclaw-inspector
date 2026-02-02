@@ -11,8 +11,16 @@ export function formatDate(d: Date): string {
   return `${date} ${time}`;
 }
 
+export function extractTopicId(filename: string): string | null {
+  const m = filename.match(/-topic-(\d+)/);
+  return m ? m[1] : null;
+}
+
 export function progressKey(row: SessionRow | null | undefined): string {
-  return row?.SessionId || row?.Filename || '';
+  if (!row) return '';
+  const sid = row.SessionId || row.Filename;
+  const topicId = extractTopicId(row.Filename);
+  return topicId ? `${sid}:${topicId}` : sid;
 }
 
 export function shortName(fname: string): string {

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { fetchSessions, fetchCounts, fetchCSV, fetchDanger, fetchProgress, saveProgress as saveProgressApi, fetchSession, connectSSE, searchSessions } from './api';
-import { parseCSV, shortName, progressKey } from './utils';
+import { parseCSV, shortName, progressKey, extractTopicId } from './utils';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import Sidebar from './components/Sidebar';
 import MessageViewer from './components/MessageViewer';
@@ -114,12 +114,13 @@ export default function App() {
       const csvMap: Record<string, Record<string, string | undefined>> = {};
       csvRows.forEach(r => { csvMap[r.Filename] = r; });
 
-      // Migrate progress from filename-keyed to sessionId-keyed
+      // Migrate progress: filename-keyed → sessionId-keyed → composite sessionId:topicId
       const migratedProg: Progress = { ...prog };
       const sidMap: Record<string, string> = {};
       sessData.forEach(s => {
         if (s.sessionId) sidMap[s.filename] = s.sessionId;
       });
+      // Step 1: migrate filename keys → sessionId keys
       for (const [key, val] of Object.entries(prog)) {
         if (key.endsWith('.jsonl') || key.includes('.deleted.')) {
           const sid = sidMap[key];
@@ -129,11 +130,22 @@ export default function App() {
           delete migratedProg[key];
         }
       }
+      // Step 2: migrate sessionId keys → composite sessionId:topicId keys
+      // For topic files, if composite key doesn't exist but plain sessionId key does, copy it
+      for (const s of sessData) {
+        const topicId = extractTopicId(s.filename);
+        if (!topicId || !s.sessionId) continue;
+        const compositeKey = `${s.sessionId}:${topicId}`;
+        if (!migratedProg[compositeKey] && migratedProg[s.sessionId]?.lastReadId) {
+          migratedProg[compositeKey] = { ...migratedProg[s.sessionId] };
+        }
+      }
 
       const built: SessionRow[] = sessData.map(s => {
         const csv = csvMap[s.filename] || {};
         const total = counts[s.filename] || 0;
-        const pKey = s.sessionId || s.filename;
+        const topicId = extractTopicId(s.filename);
+        const pKey = topicId && s.sessionId ? `${s.sessionId}:${topicId}` : (s.sessionId || s.filename);
         if (!migratedProg[pKey]) migratedProg[pKey] = {};
         migratedProg[pKey].totalMsgs = total;
         if (!migratedProg[pKey].lastReadId) migratedProg[pKey].unreadCount = total;
@@ -186,7 +198,8 @@ export default function App() {
         const built: SessionRow[] = sessData.map(s => {
           const csv = csvMap[s.filename] || {};
           const total = counts[s.filename] || 0;
-          const pk = s.sessionId || s.filename;
+          const topicId = extractTopicId(s.filename);
+          const pk = topicId && s.sessionId ? `${s.sessionId}:${topicId}` : (s.sessionId || s.filename);
           const oldTotal = newProg[pk]?.totalMsgs || 0;
           if (!newProg[pk]) newProg[pk] = {};
           newProg[pk].totalMsgs = total;
@@ -211,7 +224,9 @@ export default function App() {
 
         const oldSessions = sessionsRef.current;
         const oldEntry = oldSessions.find(s => s.Filename === filename);
-        const pk = sidMap[filename] || filename;
+        const topicId = extractTopicId(filename);
+        const sid = sidMap[filename] || filename;
+        const pk = topicId && sidMap[filename] ? `${sidMap[filename]}:${topicId}` : sid;
         const oldCount = oldEntry ? (progressRef.current[pk]?.totalMsgs || 0) : 0;
         const newCount = counts[filename] || 0;
         if (newCount > oldCount && oldEntry) {
@@ -244,7 +259,7 @@ export default function App() {
 
   async function loadSessionData(filename: string, row: SessionRow | null | undefined, prog?: Progress) {
     setLoading(true);
-    const pk = row?.SessionId || filename;
+    const pk = row ? progressKey(row) : filename;
     try {
       const text = await fetchSession(filename);
       const { entries, parseErrors: errors, totalLines: total } = parseJSONL(text);
@@ -287,7 +302,7 @@ export default function App() {
   function handleMarkRead(filename: string, messageId: string) {
     if (dangerOnly) return;
     const row = sessions.find(r => r.Filename === filename);
-    const pk = row?.SessionId || filename;
+    const pk = row ? progressKey(row) : filename;
     const msgs = currentEntries.filter(e => e.type === 'message');
     const lastMsg = msgs[msgs.length - 1];
     const isLast = !!lastMsg && lastMsg.id === messageId;
@@ -308,7 +323,7 @@ export default function App() {
 
   function handleRename(filename: string, newLabel: string) {
     const row = sessions.find(r => r.Filename === filename);
-    const pk = row?.SessionId || filename;
+    const pk = row ? progressKey(row) : filename;
     const newProg: Progress = { ...progressRef.current };
     if (!newProg[pk]) newProg[pk] = {};
     if (newLabel) {

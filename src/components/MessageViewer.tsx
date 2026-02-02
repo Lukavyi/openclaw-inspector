@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState, useMemo, useCallback } from 'react';
 import { Virtuoso, VirtuosoHandle } from 'react-virtuoso';
-import { shortName } from '../utils';
+import { shortName, progressKey } from '../utils';
 import Message from './Message';
 import type { SessionEntry, SessionRow, Progress, DangerData, DangerHit, ParseError } from '../types';
 
@@ -39,7 +39,7 @@ export default function MessageViewer({
   const [showJumpBtn, setShowJumpBtn] = useState(false);
   const prevEntriesLen = useRef(0);
 
-  const pKey = row?.SessionId || filename;
+  const pKey = row ? progressKey(row) : filename;
   const p = progress[pKey];
   const lastReadId = p?.lastReadId;
   const customLabel = p?.customLabel;
