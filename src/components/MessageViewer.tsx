@@ -288,7 +288,7 @@ export default function MessageViewer({
             ref={virtuosoRef}
             totalCount={visibleEntries.length}
             itemContent={itemContent}
-            atBottomStateChange={setAtBottom}
+            atBottomStateChange={(bottom) => { setAtBottom(bottom); if (bottom) setShowNewBtn(false); }}
             rangeChanged={handleRangeChanged}
             overscan={400}
             style={{ height: '100%' }}
