@@ -40,6 +40,12 @@ export interface DangerHit {
 
 export type DangerData = Record<string, DangerHit[]>;
 
+export interface ParseError {
+  line: number;
+  raw: string;
+  error: string;
+}
+
 export interface SessionEntry {
   type: string;
   id?: string;
@@ -51,6 +57,8 @@ export interface SessionEntry {
   summary?: string;
   customType?: string;
   cwd?: string;
+  _parseError?: ParseError;
+  _lineNumber?: number;
   [key: string]: unknown;
 }
 

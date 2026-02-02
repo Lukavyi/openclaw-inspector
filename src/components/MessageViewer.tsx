@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState, useMemo, useCallback } from 'react'
 import { Virtuoso, VirtuosoHandle } from 'react-virtuoso';
 import { shortName } from '../utils';
 import Message from './Message';
-import type { SessionEntry, SessionRow, Progress, DangerData, DangerHit } from '../types';
+import type { SessionEntry, SessionRow, Progress, DangerData, DangerHit, ParseError } from '../types';
 
 interface MessageViewerProps {
   filename: string;
@@ -21,12 +21,15 @@ interface MessageViewerProps {
   detailsOpen: boolean;
   setDetailsOpen: (v: boolean) => void;
   loading: boolean;
+  parseErrors: ParseError[];
+  totalLines: number;
 }
 
 export default function MessageViewer({
   filename, entries, row, progress, dangerData,
   allExpanded, setAllExpanded, dangerOnly, setDangerOnly,
-  msgSearch, setMsgSearch, onMarkRead, onRename, detailsOpen, setDetailsOpen, loading
+  msgSearch, setMsgSearch, onMarkRead, onRename, detailsOpen, setDetailsOpen, loading,
+  parseErrors, totalLines,
 }: MessageViewerProps) {
   const virtuosoRef = useRef<VirtuosoHandle>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -181,7 +184,21 @@ export default function MessageViewer({
       </div>
     );
     if (e.type === 'custom') return <div className="custom-msg">{e.customType || 'custom'}</div>;
-    return null;
+    if (e.type === '_parseError') {
+      const pe = e._parseError!;
+      return (
+        <div className="parse-error-msg">
+          <span className="badge">⚠️ Parse error</span> Line {pe.line}: {pe.error}
+          <pre className="raw-line">{pe.raw}</pre>
+        </div>
+      );
+    }
+    // Unknown type placeholder
+    return (
+      <div className="unknown-type-msg">
+        ⚠️ Unknown type: <code>{e.type}</code> (line {e._lineNumber || '?'})
+      </div>
+    );
   }, [visibleEntries, lastReadId, readEntryIds, lastMsgId, dangerOnly, msgSearch, fileDangers, allExpanded, handleClick, p?.lastReadAt]);
 
   return (
@@ -263,6 +280,14 @@ export default function MessageViewer({
             style={{ height: '100%' }}
             increaseViewportBy={{ top: 200, bottom: 200 }}
           />
+        )}
+        {!loading && totalLines > 0 && (
+          <div className={`integrity-footer ${parseErrors.length > 0 ? 'has-errors' : ''}`}>
+            {parseErrors.length === 0
+              ? `✅ ${totalLines}/${totalLines} lines parsed`
+              : `⚠️ ${totalLines - parseErrors.length}/${totalLines} lines parsed (${parseErrors.length} error${parseErrors.length > 1 ? 's' : ''})`
+            }
+          </div>
         )}
       </div>
       {showJumpBtn && (

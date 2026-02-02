@@ -5,9 +5,46 @@ import { useLocalStorage } from './hooks/useLocalStorage';
 import Sidebar from './components/Sidebar';
 import MessageViewer from './components/MessageViewer';
 import Toast from './components/Toast';
-import type { SessionRow, Progress, DangerData, SessionEntry, Toast as ToastType, Filters } from './types';
+import type { SessionRow, Progress, DangerData, SessionEntry, ParseError, Toast as ToastType, Filters } from './types';
 
 const DEFAULT_FILTERS: Filters = { read: 'all', lifecycle: [], dangerOnly: false };
+
+const KNOWN_TYPES = new Set([
+  'session', 'message', 'model_change',
+  'thinking_level_change', 'compaction', 'custom',
+]);
+
+function parseJSONL(text: string): { entries: SessionEntry[]; parseErrors: ParseError[]; totalLines: number } {
+  const lines = text.split('\n');
+  const entries: SessionEntry[] = [];
+  const parseErrors: ParseError[] = [];
+  let totalLines = 0;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    totalLines++;
+    try {
+      const obj = JSON.parse(line) as SessionEntry;
+      obj._lineNumber = i + 1;
+      entries.push(obj);
+    } catch (e) {
+      const err: ParseError = {
+        line: i + 1,
+        raw: line.length > 200 ? line.slice(0, 200) + '…' : line,
+        error: e instanceof Error ? e.message : String(e),
+      };
+      parseErrors.push(err);
+      // Add a synthetic entry so it's visible in the UI
+      entries.push({
+        type: '_parseError',
+        _parseError: err,
+        _lineNumber: i + 1,
+      });
+    }
+  }
+  return { entries, parseErrors, totalLines };
+}
 
 export default function App() {
   const [sessions, setSessions] = useState<SessionRow[]>([]);
@@ -26,6 +63,8 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [toasts, setToasts] = useState<ToastType[]>([]);
   const [loading, setLoading] = useState(false);
+  const [parseErrors, setParseErrors] = useState<ParseError[]>([]);
+  const [totalLines, setTotalLines] = useState(0);
   const [contentMatches, setContentMatches] = useState<Set<string> | null>(null);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -208,7 +247,9 @@ export default function App() {
     const pk = row?.SessionId || filename;
     try {
       const text = await fetchSession(filename);
-      const entries: SessionEntry[] = text.split('\n').filter(l => l.trim()).map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean) as SessionEntry[];
+      const { entries, parseErrors: errors, totalLines: total } = parseJSONL(text);
+      setParseErrors(errors);
+      setTotalLines(total);
       const msgs = entries.filter(e => e.type === 'message');
 
       const p = prog || progressRef.current;
@@ -315,6 +356,8 @@ export default function App() {
             detailsOpen={detailsOpen}
             setDetailsOpen={setDetailsOpen}
             loading={loading}
+            parseErrors={parseErrors}
+            totalLines={totalLines}
           />
         ) : (
           <div className="empty">🔍 OpenClaw Inspector — select a session</div>

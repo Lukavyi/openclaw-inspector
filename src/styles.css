@@ -207,3 +207,60 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sa
 .jump-btn:hover {
   transform: translateX(-50%) translateY(-1px);
 }
+
+/* Parse errors & unknown types */
+.parse-error-msg {
+  margin: 4px 12px;
+  padding: 8px 12px;
+  background: #3b1818;
+  border: 1px solid #7f1d1d;
+  border-radius: 6px;
+  color: #fca5a5;
+  font-size: 12px;
+}
+.parse-error-msg .badge {
+  font-weight: 700;
+  margin-right: 6px;
+}
+.parse-error-msg .raw-line {
+  margin: 4px 0 0;
+  padding: 4px 8px;
+  background: #1a0a0a;
+  border-radius: 4px;
+  font-size: 11px;
+  overflow-x: auto;
+  white-space: pre;
+  color: #f87171;
+  max-height: 80px;
+}
+.unknown-type-msg {
+  margin: 4px 12px;
+  padding: 6px 12px;
+  background: #2d2407;
+  border: 1px solid #78350f;
+  border-radius: 6px;
+  color: #fbbf24;
+  font-size: 12px;
+}
+.unknown-type-msg code {
+  background: #1a1505;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 11px;
+}
+
+/* Integrity footer */
+.integrity-footer {
+  padding: 6px 16px;
+  text-align: center;
+  font-size: 12px;
+  color: #6b7280;
+  border-top: 1px solid #2a2a2a;
+  background: #111;
+  flex-shrink: 0;
+}
+.integrity-footer.has-errors {
+  color: #f87171;
+  background: #1a0a0a;
+  border-top-color: #7f1d1d;
+}
