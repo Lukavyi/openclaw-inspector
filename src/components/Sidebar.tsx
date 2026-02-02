@@ -111,7 +111,21 @@ export default function Sidebar({
   }, [sessions, progress, dangerData]);
 
   // Items: parent sessions + their subagent children interleaved
-  type SidebarItem = { type: 'session'; row: SessionRow } | { type: 'subagent'; info: SubagentInfo; row: SessionRow };
+  type SidebarItem = { type: 'session'; row: SessionRow; dimmed?: boolean } | { type: 'subagent'; info: SubagentInfo; row: SessionRow; dimmed?: boolean };
+
+  // Helper: check if a row matches the search query
+  const matchesSearch = useCallback((row: SessionRow, q: string): boolean => {
+    if (!q) return true;
+    const cl = progress[progressKey(row)]?.customLabel || '';
+    const localMatch = (row.Filename || '').toLowerCase().includes(q) ||
+      (row.Label || '').toLowerCase().includes(q) ||
+      cl.toLowerCase().includes(q) ||
+      (row.Description || '').toLowerCase().includes(q) ||
+      (row.Reason || '').toLowerCase().includes(q);
+    if (localMatch) return true;
+    if (contentMatches && contentMatches.has(row.Filename)) return true;
+    return false;
+  }, [progress, contentMatches]);
 
   const filtered = useMemo((): SidebarItem[] => {
     const q = searchQuery.toLowerCase();
@@ -121,32 +135,33 @@ export default function Sidebar({
 
     const items: SidebarItem[] = [];
     for (const r of sorted) {
-      // Skip subagent sessions from main list (they appear as children)
       if (subagentFilenames.has(r.Filename)) continue;
       if (!matchesFilters(r, filters, progress, dangerData)) continue;
-      if (q) {
-        const cl = progress[progressKey(r)]?.customLabel || '';
-        const localMatch = (r.Filename || '').toLowerCase().includes(q) ||
-          (r.Label || '').toLowerCase().includes(q) ||
-          cl.toLowerCase().includes(q) ||
-          (r.Description || '').toLowerCase().includes(q) ||
-          (r.Reason || '').toLowerCase().includes(q);
-        if (!localMatch && !(contentMatches && contentMatches.has(r.Filename))) continue;
-      }
-      items.push({ type: 'session', row: r });
-      // Add children subagents right after parent
-      const children = childrenByParent.get(r.Filename);
-      if (children) {
-        for (const child of children) {
-          const childRow = sessionMap.get(child.filename);
-          if (childRow) {
-            items.push({ type: 'subagent', info: child, row: childRow });
-          }
+
+      const children = childrenByParent.get(r.Filename) || [];
+      const childItems: { info: SubagentInfo; row: SessionRow; matches: boolean }[] = [];
+      for (const child of children) {
+        const childRow = sessionMap.get(child.filename);
+        if (childRow) {
+          childItems.push({ info: child, row: childRow, matches: matchesSearch(childRow, q) });
         }
+      }
+
+      const parentMatches = matchesSearch(r, q);
+      const anyChildMatches = childItems.some(c => c.matches);
+
+      // Show parent if it matches OR any child matches
+      if (q && !parentMatches && !anyChildMatches) continue;
+
+      items.push({ type: 'session', row: r });
+      for (const child of childItems) {
+        // Dim children that don't match when search is active
+        const dimmed = q ? !child.matches : false;
+        items.push({ type: 'subagent', info: child.info, row: child.row, dimmed });
       }
     }
     return items;
-  }, [sessions, filters, activeSort, searchQuery, progress, dangerData, contentMatches, subagentFilenames, childrenByParent]);
+  }, [sessions, filters, activeSort, searchQuery, progress, dangerData, contentMatches, subagentFilenames, childrenByParent, matchesSearch]);
 
   const virtuosoRef = useRef<VirtuosoHandle>(null);
   const initialScrollDone = useRef(false);
@@ -178,6 +193,7 @@ export default function Sidebar({
     const pk = progressKey(row);
     const p = progress[pk];
     const isSubagent = item.type === 'subagent';
+    const isDimmed = !!item.dimmed;
     const label = isSubagent
       ? (item as { type: 'subagent'; info: SubagentInfo; row: SessionRow }).info.label || ''
       : p?.customLabel || row.Label || '';
@@ -192,7 +208,7 @@ export default function Sidebar({
 
     return (
       <div
-        className={`session-item ${currentFile === fname ? 'selected' : ''} ${isSubagent ? 'subagent-child' : ''}`}
+        className={`session-item ${currentFile === fname ? 'selected' : ''} ${isSubagent ? 'subagent-child' : ''} ${isDimmed ? 'dimmed' : ''}`}
         onClick={() => onSelect(fname)}
       >
         <div className="name">

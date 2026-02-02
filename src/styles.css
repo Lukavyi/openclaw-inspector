@@ -371,3 +371,11 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sa
   font-size: 11px;
   margin-right: 2px;
 }
+
+/* Dimmed sidebar items (search non-match) */
+.session-item.dimmed {
+  opacity: 0.35;
+}
+.session-item.dimmed:hover {
+  opacity: 0.6;
+}
