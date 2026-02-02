@@ -165,7 +165,7 @@ export default React.memo(function Message({ entry, isRead, dangerOnly, fileDang
           <div style={{ marginTop: 6 }}>
             {msgDangers.map((d, i) => (
               <span key={i} className={`danger-chip ${d.severity}`}>
-                ⚠ {d.label}: {d.command.substring(0, 60)}{d.command.length > 60 ? '…' : ''}
+                ⚠ {d.label}: {d.command}
               </span>
             ))}
           </div>
