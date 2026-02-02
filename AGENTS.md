@@ -16,6 +16,11 @@
 - Run `npx vite build` after changes — must compile without errors.
 - Restart `node server.js` after build to serve updated dist.
 
+### Publishing
+- After every change, ask the user if they want to publish a new version to npm.
+- Bump version in package.json (`npm version patch/minor/major`), then `npm publish --otp=<code>`.
+- User will provide the OTP code for npm 2FA.
+
 ### Workflow
 1. Make changes
 2. `npm test` — all tests pass
@@ -23,3 +28,4 @@
 4. Manual verification on `http://localhost:9100`
 5. `git commit` + `git push`
 6. Update beads: `bd close` / `bd sync`
+7. Ask user: "Publish to npm?"
