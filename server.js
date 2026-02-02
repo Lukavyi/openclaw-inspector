@@ -349,11 +349,10 @@ const server = createServer((req, res) => {
     return;
   }
 
-  // API: subagent map (childSessionKey → filename)
+  // API: subagent map (childSessionKey → filename + parentFilename)
   if (path === "/api/subagents") {
     const meta = getSessionMeta();
     const files = readdirSync(SESSIONS_DIR).filter(f => f.endsWith(".jsonl"));
-    // Build sessionKey → filename map using sessions.json
     const metaPath = join(SESSIONS_DIR, "sessions.json");
     const result = {};
     if (existsSync(metaPath)) {
@@ -365,12 +364,31 @@ const server = createServer((req, res) => {
             if (sid) {
               const file = files.find(f => f.startsWith(sid));
               if (file) {
-                result[key] = { filename: file, sessionId: sid, label: val.label || "" };
+                result[key] = { filename: file, sessionId: sid, label: val.label || "", parentFilename: null };
               }
             }
           }
         }
       } catch {}
+    }
+    // Find parent files for each subagent by scanning for childSessionKey in toolResults
+    const subKeys = Object.keys(result);
+    if (subKeys.length > 0) {
+      for (const f of files) {
+        try {
+          const content = readFileSync(join(SESSIONS_DIR, f), "utf-8");
+          if (!content.includes("sessions_spawn")) continue;
+          for (const line of content.split("\n")) {
+            if (!line.includes("childSessionKey")) continue;
+            for (const sk of subKeys) {
+              if (result[sk].parentFilename) continue;
+              if (line.includes(sk)) {
+                result[sk].parentFilename = f;
+              }
+            }
+          }
+        } catch {}
+      }
     }
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify(result));

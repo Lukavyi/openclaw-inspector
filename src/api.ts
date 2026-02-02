@@ -51,6 +51,7 @@ export interface SubagentInfo {
   filename: string;
   sessionId: string;
   label: string;
+  parentFilename: string | null;
 }
 
 export async function fetchSubagents(): Promise<Record<string, SubagentInfo>> {

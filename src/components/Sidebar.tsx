@@ -78,13 +78,19 @@ export default function Sidebar({
   filters, setFilters, activeSort, setActiveSort,
   searchQuery, setSearchQuery, contentMatches, subagentMap, onSelect, isOpen, onClose
 }: SidebarProps) {
-  // Build set of filenames that are subagent sessions (to hide from main list)
-  const subagentFilenames = useMemo(() => {
-    const set = new Set<string>();
+  // Build maps for tree view: subagent filename set + parent→children mapping
+  const { subagentFilenames, childrenByParent } = useMemo(() => {
+    const fnames = new Set<string>();
+    const byParent = new Map<string, SubagentInfo[]>();
     for (const info of Object.values(subagentMap)) {
-      set.add(info.filename);
+      fnames.add(info.filename);
+      if (info.parentFilename) {
+        const arr = byParent.get(info.parentFilename) || [];
+        arr.push(info);
+        byParent.set(info.parentFilename, arr);
+      }
     }
-    return set;
+    return { subagentFilenames: fnames, childrenByParent: byParent };
   }, [subagentMap]);
   // Count sessions per filter for badges
   const counts = useMemo(() => {
@@ -104,25 +110,43 @@ export default function Sidebar({
     return c;
   }, [sessions, progress, dangerData]);
 
-  const filtered = useMemo(() => {
+  // Items: parent sessions + their subagent children interleaved
+  type SidebarItem = { type: 'session'; row: SessionRow } | { type: 'subagent'; info: SubagentInfo; row: SessionRow };
+
+  const filtered = useMemo((): SidebarItem[] => {
     const q = searchQuery.toLowerCase();
     const sorted = sortSessions(sessions, activeSort, progress);
-    return sorted.filter(r => {
-      // Hide subagent sessions — they're shown inline in parent
-      if (subagentFilenames.has(r.Filename)) return false;
-      if (!matchesFilters(r, filters, progress, dangerData)) return false;
-      if (!q) return true;
-      const cl = progress[progressKey(r)]?.customLabel || '';
-      const localMatch = (r.Filename || '').toLowerCase().includes(q) ||
-        (r.Label || '').toLowerCase().includes(q) ||
-        cl.toLowerCase().includes(q) ||
-        (r.Description || '').toLowerCase().includes(q) ||
-        (r.Reason || '').toLowerCase().includes(q);
-      if (localMatch) return true;
-      if (contentMatches && contentMatches.has(r.Filename)) return true;
-      return false;
-    });
-  }, [sessions, filters, activeSort, searchQuery, progress, dangerData, contentMatches, subagentFilenames]);
+    const sessionMap = new Map<string, SessionRow>();
+    sessions.forEach(r => sessionMap.set(r.Filename, r));
+
+    const items: SidebarItem[] = [];
+    for (const r of sorted) {
+      // Skip subagent sessions from main list (they appear as children)
+      if (subagentFilenames.has(r.Filename)) continue;
+      if (!matchesFilters(r, filters, progress, dangerData)) continue;
+      if (q) {
+        const cl = progress[progressKey(r)]?.customLabel || '';
+        const localMatch = (r.Filename || '').toLowerCase().includes(q) ||
+          (r.Label || '').toLowerCase().includes(q) ||
+          cl.toLowerCase().includes(q) ||
+          (r.Description || '').toLowerCase().includes(q) ||
+          (r.Reason || '').toLowerCase().includes(q);
+        if (!localMatch && !(contentMatches && contentMatches.has(r.Filename))) continue;
+      }
+      items.push({ type: 'session', row: r });
+      // Add children subagents right after parent
+      const children = childrenByParent.get(r.Filename);
+      if (children) {
+        for (const child of children) {
+          const childRow = sessionMap.get(child.filename);
+          if (childRow) {
+            items.push({ type: 'subagent', info: child, row: childRow });
+          }
+        }
+      }
+    }
+    return items;
+  }, [sessions, filters, activeSort, searchQuery, progress, dangerData, contentMatches, subagentFilenames, childrenByParent]);
 
   const virtuosoRef = useRef<VirtuosoHandle>(null);
   const initialScrollDone = useRef(false);
@@ -130,7 +154,7 @@ export default function Sidebar({
   // Scroll to selected session on mount
   useEffect(() => {
     if (initialScrollDone.current || !currentFile || filtered.length === 0) return;
-    const idx = filtered.findIndex(r => r.Filename === currentFile);
+    const idx = filtered.findIndex(item => item.row.Filename === currentFile);
     if (idx >= 0) {
       initialScrollDone.current = true;
       setTimeout(() => {
@@ -147,12 +171,16 @@ export default function Sidebar({
   };
 
   const itemContent = useCallback((index: number) => {
-    const row = filtered[index];
-    if (!row) return null;
+    const item = filtered[index];
+    if (!item) return null;
+    const row = item.row;
     const fname = row.Filename;
     const pk = progressKey(row);
     const p = progress[pk];
-    const label = p?.customLabel || row.Label || '';
+    const isSubagent = item.type === 'subagent';
+    const label = isSubagent
+      ? (item as { type: 'subagent'; info: SubagentInfo; row: SessionRow }).info.label || ''
+      : p?.customLabel || row.Label || '';
     const totalMsgs = p?.totalMsgs || '';
     const unreadCount = p?.unreadCount ?? 0;
     let dateStr = '';
@@ -164,13 +192,14 @@ export default function Sidebar({
 
     return (
       <div
-        className={`session-item ${currentFile === fname ? 'selected' : ''}`}
+        className={`session-item ${currentFile === fname ? 'selected' : ''} ${isSubagent ? 'subagent-child' : ''}`}
         onClick={() => onSelect(fname)}
       >
         <div className="name">
+          {isSubagent && <span className="subagent-tree-icon">🚀</span>}
           <DangerBadge filename={fname} dangerData={dangerData} />
           <ReadBadge pKey={pk} progress={progress} />
-          <ReasonBadge row={row} />
+          {!isSubagent && <ReasonBadge row={row} />}
           {shortName(fname)}
           {totalMsgs ? <span style={{ fontSize: 11, color: '#999', fontWeight: 400 }}>{totalMsgs} msgs</span> : null}
         </div>
@@ -252,9 +281,13 @@ export default function Sidebar({
         </div>
       </div>
       <div className="stats">
-        {filtered.length !== sessions.length
-          ? <span>Showing {filtered.length} of {sessions.length}</span>
-          : <span>{sessions.length} sessions</span>}
+        {(() => {
+          const parentCount = filtered.filter(i => i.type === 'session').length;
+          const totalParent = sessions.filter(r => !subagentFilenames.has(r.Filename)).length;
+          return parentCount !== totalParent
+            ? <span>Showing {parentCount} of {totalParent}</span>
+            : <span>{totalParent} sessions</span>;
+        })()}
       </div>
       <div className="session-list">
         <Virtuoso
