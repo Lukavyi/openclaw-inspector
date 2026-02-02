@@ -189,6 +189,7 @@ export default function Sidebar({
           value={searchQuery}
           onChange={e => setSearchQuery(e.target.value)}
         />
+        {searchQuery && <button className="search-clear" onClick={() => setSearchQuery('')}>✕</button>}
       </div>
       <div className="sidebar-filters">
         <div className="filter-group">

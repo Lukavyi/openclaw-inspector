@@ -220,13 +220,16 @@ export default function MessageViewer({
             ) : <>{displayLabel} <span style={{ fontSize: 14, opacity: 0.4 }}>✏️</span></>}
           </h2>
           <div className="toolbar-controls">
-            <input
-              type="text"
-              className="toolbar-search"
-              placeholder="Search..."
-              value={msgSearch}
-              onChange={e => { setMsgSearch(e.target.value); if (dangerOnly) setDangerOnly(false); }}
-            />
+            <div className="toolbar-search-wrap">
+              <input
+                type="text"
+                className="toolbar-search"
+                placeholder="Search..."
+                value={msgSearch}
+                onChange={e => { setMsgSearch(e.target.value); if (dangerOnly) setDangerOnly(false); }}
+              />
+              {msgSearch && <button className="search-clear" onClick={() => setMsgSearch('')}>✕</button>}
+            </div>
             <button
               className={`expand-btn ${allExpanded ? 'active' : ''}`}
               onClick={() => setAllExpanded(!allExpanded)}
