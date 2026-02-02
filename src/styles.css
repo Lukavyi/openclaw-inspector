@@ -293,3 +293,65 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sa
 .toolbar-search-wrap .search-clear {
   right: 6px;
 }
+
+/* Subagent inline */
+.subagent-inline {
+  margin: 8px 16px;
+  border: 1px solid #333;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #1a1a2e;
+}
+.subagent-inline.expanded {
+  border-color: #4f46e5;
+}
+.subagent-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  background: #1a1a2e;
+  user-select: none;
+  font-size: 13px;
+}
+.subagent-header:hover {
+  background: #222244;
+}
+.subagent-icon {
+  font-size: 14px;
+}
+.subagent-label {
+  flex: 1;
+  font-weight: 600;
+  color: #c4b5fd;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.subagent-stats {
+  font-size: 11px;
+  color: #888;
+  white-space: nowrap;
+}
+.subagent-unread {
+  color: #4f46e5;
+  font-weight: 700;
+}
+.subagent-toggle {
+  font-size: 10px;
+  color: #666;
+}
+.subagent-body {
+  border-top: 1px solid #333;
+  padding: 4px 0;
+  max-height: 600px;
+  overflow-y: auto;
+  background: #111;
+}
+.subagent-body .msg {
+  padding: 2px 8px;
+}
+.subagent-body .bubble {
+  font-size: 12px;
+}

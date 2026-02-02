@@ -47,6 +47,17 @@ export async function searchSessions(query: string): Promise<string[]> {
   return res.ok ? res.json() : [];
 }
 
+export interface SubagentInfo {
+  filename: string;
+  sessionId: string;
+  label: string;
+}
+
+export async function fetchSubagents(): Promise<Record<string, SubagentInfo>> {
+  const res = await fetch(`${BASE}/api/subagents`);
+  return res.ok ? res.json() : {};
+}
+
 export function connectSSE(onFileChange: (data: { filename: string }) => void): EventSource {
   const sse = new EventSource(`${BASE}/api/events`);
   sse.addEventListener('file-change', (e: MessageEvent) => {

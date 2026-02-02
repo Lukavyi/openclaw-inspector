@@ -2,7 +2,9 @@ import React, { useRef, useEffect, useState, useMemo, useCallback } from 'react'
 import { Virtuoso, VirtuosoHandle } from 'react-virtuoso';
 import { shortName, progressKey } from '../utils';
 import Message from './Message';
+import SubagentInline from './SubagentInline';
 import type { SessionEntry, SessionRow, Progress, DangerData, DangerHit, ParseError } from '../types';
+import type { SubagentInfo } from '../api';
 
 interface MessageViewerProps {
   filename: string;
@@ -17,7 +19,9 @@ interface MessageViewerProps {
   msgSearch: string;
   setMsgSearch: (v: string) => void;
   onMarkRead: (filename: string, messageId: string) => void;
+  onSubagentMarkRead: (progressKey: string, messageId: string) => void;
   onRename: (filename: string, newLabel: string) => void;
+  subagentMap: Record<string, SubagentInfo>;
   detailsOpen: boolean;
   setDetailsOpen: (v: boolean) => void;
   loading: boolean;
@@ -28,7 +32,7 @@ interface MessageViewerProps {
 export default function MessageViewer({
   filename, entries, row, progress, dangerData,
   allExpanded, setAllExpanded, dangerOnly, setDangerOnly,
-  msgSearch, setMsgSearch, onMarkRead, onRename, detailsOpen, setDetailsOpen, loading,
+  msgSearch, setMsgSearch, onMarkRead, onSubagentMarkRead, onRename, subagentMap, detailsOpen, setDetailsOpen, loading,
   parseErrors, totalLines,
 }: MessageViewerProps) {
   const virtuosoRef = useRef<VirtuosoHandle>(null);
@@ -68,6 +72,35 @@ export default function MessageViewer({
   }, [entries, dangerOnly, dangerMsgIds, msgSearch]);
 
   const lastMsgId = msgs.length > 0 ? msgs[msgs.length - 1].id : null;
+
+  // Build map: msgId (of toolResult for sessions_spawn) → subagent info
+  const subagentEntries = useMemo(() => {
+    const map = new Map<string, { childSessionKey: string; info: SubagentInfo; task: string }>();
+    // Find all sessions_spawn toolResults and extract childSessionKey
+    for (const e of entries) {
+      if (e.type !== 'message' || e.message?.role !== 'toolResult') continue;
+      if (e.message.toolName !== 'sessions_spawn') continue;
+      const text = (e.message.content || []).map(c => ('text' in c ? (c as { text: string }).text : '')).join('');
+      try {
+        const parsed = JSON.parse(text);
+        const key = parsed.childSessionKey;
+        if (key && subagentMap[key]) {
+          // Find the corresponding toolCall to get the task
+          let task = '';
+          for (const e2 of entries) {
+            if (e2.type !== 'message' || e2.message?.role !== 'assistant') continue;
+            for (const b of e2.message.content || []) {
+              if (b.type === 'toolCall' && (b as { id?: string }).id === e.message.toolCallId) {
+                task = ((b as { arguments?: { task?: string } }).arguments?.task) || '';
+              }
+            }
+          }
+          map.set(e.id!, { childSessionKey: key, info: subagentMap[key], task });
+        }
+      } catch {}
+    }
+    return map;
+  }, [entries, subagentMap]);
 
   // Find last-read index in visible entries
   const lastReadIndex = useMemo(() => {
@@ -171,6 +204,7 @@ export default function MessageViewer({
     if (e.type === 'message') {
       const isRead = !!lastReadId && readEntryIds.has(e.id!);
       const showMarker = !!lastReadId && e.id === lastReadId && e.id !== lastMsgId && !dangerOnly && !msgSearch;
+      const sub = e.id ? subagentEntries.get(e.id) : undefined;
 
       return (
         <>
@@ -182,6 +216,18 @@ export default function MessageViewer({
             allExpanded={allExpanded}
             onClick={handleClick}
           />
+          {sub && (
+            <SubagentInline
+              childSessionKey={sub.childSessionKey}
+              filename={sub.info.filename}
+              label={sub.info.label}
+              task={sub.task}
+              progress={progress}
+              dangerData={dangerData}
+              allExpanded={allExpanded}
+              onMarkRead={onSubagentMarkRead}
+            />
+          )}
           {showMarker && (
             <div className="read-marker">
               Last read{p?.lastReadAt ? ` · ${new Date(p.lastReadAt).toLocaleString()}` : ''}
@@ -214,7 +260,7 @@ export default function MessageViewer({
         ⚠️ Unknown type: <code>{e.type}</code> (line {e._lineNumber || '?'})
       </div>
     );
-  }, [visibleEntries, lastReadId, readEntryIds, lastMsgId, dangerOnly, msgSearch, fileDangers, allExpanded, handleClick, p?.lastReadAt]);
+  }, [visibleEntries, lastReadId, readEntryIds, lastMsgId, dangerOnly, msgSearch, fileDangers, allExpanded, handleClick, p?.lastReadAt, subagentEntries, progress, dangerData, onSubagentMarkRead]);
 
   return (
     <>

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { fetchSessions, fetchCounts, fetchCSV, fetchDanger, fetchProgress, saveProgress as saveProgressApi, fetchSession, connectSSE, searchSessions } from './api';
+import { fetchSessions, fetchCounts, fetchCSV, fetchDanger, fetchProgress, saveProgress as saveProgressApi, fetchSession, connectSSE, searchSessions, fetchSubagents } from './api';
+import type { SubagentInfo } from './api';
 import { parseCSV, shortName, progressKey, extractTopicId } from './utils';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import Sidebar from './components/Sidebar';
@@ -66,6 +67,7 @@ export default function App() {
   const [parseErrors, setParseErrors] = useState<ParseError[]>([]);
   const [totalLines, setTotalLines] = useState(0);
   const [contentMatches, setContentMatches] = useState<Set<string> | null>(null);
+  const [subagentMap, setSubagentMap] = useState<Record<string, SubagentInfo>>({});
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Debounced content search
@@ -106,9 +108,10 @@ export default function App() {
   // Load initial data
   useEffect(() => {
     (async () => {
-      const [sessData, counts, csvText, danger, prog] = await Promise.all([
-        fetchSessions(), fetchCounts(), fetchCSV(), fetchDanger(), fetchProgress()
+      const [sessData, counts, csvText, danger, prog, subs] = await Promise.all([
+        fetchSessions(), fetchCounts(), fetchCSV(), fetchDanger(), fetchProgress(), fetchSubagents()
       ]);
+      setSubagentMap(subs);
 
       const csvRows = csvText ? parseCSV(csvText) : [];
       const csvMap: Record<string, Record<string, string | undefined>> = {};
@@ -321,6 +324,17 @@ export default function App() {
     saveProgress(newProg);
   }
 
+  function handleSubagentMarkRead(pKey: string, messageId: string) {
+    const newProg: Progress = { ...progressRef.current };
+    if (!newProg[pKey]) newProg[pKey] = {};
+    newProg[pKey] = {
+      ...newProg[pKey],
+      lastReadId: messageId,
+      lastReadAt: new Date().toISOString(),
+    };
+    saveProgress(newProg);
+  }
+
   function handleRename(filename: string, newLabel: string) {
     const row = sessions.find(r => r.Filename === filename);
     const pk = row ? progressKey(row) : filename;
@@ -367,7 +381,9 @@ export default function App() {
             msgSearch={msgSearch}
             setMsgSearch={setMsgSearch}
             onMarkRead={handleMarkRead}
+            onSubagentMarkRead={handleSubagentMarkRead}
             onRename={handleRename}
+            subagentMap={subagentMap}
             detailsOpen={detailsOpen}
             setDetailsOpen={setDetailsOpen}
             loading={loading}

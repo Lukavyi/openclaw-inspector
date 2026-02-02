@@ -349,6 +349,34 @@ const server = createServer((req, res) => {
     return;
   }
 
+  // API: subagent map (childSessionKey → filename)
+  if (path === "/api/subagents") {
+    const meta = getSessionMeta();
+    const files = readdirSync(SESSIONS_DIR).filter(f => f.endsWith(".jsonl"));
+    // Build sessionKey → filename map using sessions.json
+    const metaPath = join(SESSIONS_DIR, "sessions.json");
+    const result = {};
+    if (existsSync(metaPath)) {
+      try {
+        const data = JSON.parse(readFileSync(metaPath, "utf-8"));
+        for (const [key, val] of Object.entries(data)) {
+          if (key.includes("subagent")) {
+            const sid = val.sessionId;
+            if (sid) {
+              const file = files.find(f => f.startsWith(sid));
+              if (file) {
+                result[key] = { filename: file, sessionId: sid, label: val.label || "" };
+              }
+            }
+          }
+        }
+      } catch {}
+    }
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(result));
+    return;
+  }
+
   // API: read session file
   if (path.startsWith("/api/session/")) {
     const filename = decodeURIComponent(path.slice("/api/session/".length));

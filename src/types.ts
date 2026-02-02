@@ -92,6 +92,7 @@ export interface SessionMessage {
   content: MessageContent[];
   isError?: boolean;
   toolName?: string;
+  toolCallId?: string;
   usage?: {
     totalTokens?: number;
     input?: number;
