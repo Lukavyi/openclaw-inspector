@@ -1,5 +1,5 @@
-import { useMemo, useCallback } from 'react';
-import { Virtuoso } from 'react-virtuoso';
+import { useMemo, useCallback, useRef, useEffect } from 'react';
+import { Virtuoso, VirtuosoHandle } from 'react-virtuoso';
 import { shortName, formatDate, matchesFilters, sortSessions, progressKey } from '../utils';
 import type { SessionRow, Progress, DangerData, Filters } from '../types';
 
@@ -111,6 +111,21 @@ export default function Sidebar({
       return false;
     });
   }, [sessions, filters, activeSort, searchQuery, progress, dangerData, contentMatches]);
+
+  const virtuosoRef = useRef<VirtuosoHandle>(null);
+  const initialScrollDone = useRef(false);
+
+  // Scroll to selected session on mount
+  useEffect(() => {
+    if (initialScrollDone.current || !currentFile || filtered.length === 0) return;
+    const idx = filtered.findIndex(r => r.Filename === currentFile);
+    if (idx >= 0) {
+      initialScrollDone.current = true;
+      setTimeout(() => {
+        virtuosoRef.current?.scrollToIndex({ index: idx, align: 'center', behavior: 'auto' });
+      }, 100);
+    }
+  }, [filtered, currentFile]);
 
   const toggleLifecycle = (key: string) => {
     const lc = filters.lifecycle.includes(key)
@@ -230,6 +245,7 @@ export default function Sidebar({
       </div>
       <div className="session-list">
         <Virtuoso
+          ref={virtuosoRef}
           totalCount={filtered.length}
           itemContent={itemContent}
           overscan={200}
