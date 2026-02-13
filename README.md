@@ -109,7 +109,7 @@ Then open `https://your-machine.tailnet.ts.net:9100` from any device on your tai
 ## Development
 
 ```bash
-git clone https://github.com/Lukavyi/openclaw-inspector.git
+git clone https://github.com/lukavyi-consulting/openclaw-inspector.git
 cd openclaw-inspector
 npm install
 
@@ -131,7 +131,7 @@ npm run build     # Production build → dist/
 
 This project has been tested **exclusively with Telegram** sessions. Other messaging channels (Discord, Signal, WhatsApp, Slack, etc.) may have different session file structures or message formats that could cause display issues or missing data.
 
-If you use OpenClaw with a non-Telegram channel and encounter problems, please [open an issue](https://github.com/Lukavyi/openclaw-inspector/issues) — PRs welcome!
+If you use OpenClaw with a non-Telegram channel and encounter problems, please [open an issue](https://github.com/lukavyi-consulting/openclaw-inspector/issues) — PRs welcome!
 
 ## Built with OpenClaw 🤖
 

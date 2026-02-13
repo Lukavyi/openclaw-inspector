@@ -26,7 +26,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Lukavyi/openclaw-inspector.git"
+    "url": "git+https://github.com/lukavyi-consulting/openclaw-inspector.git"
   },
   "keywords": [
     "openclaw",
@@ -42,9 +42,9 @@
   "license": "MIT",
   "type": "module",
   "bugs": {
-    "url": "https://github.com/Lukavyi/openclaw-inspector/issues"
+    "url": "https://github.com/lukavyi-consulting/openclaw-inspector/issues"
   },
-  "homepage": "https://github.com/Lukavyi/openclaw-inspector#readme",
+  "homepage": "https://github.com/lukavyi-consulting/openclaw-inspector#readme",
   "engines": {
     "node": ">=18"
   },
