@@ -113,8 +113,17 @@ git clone https://github.com/lukavyi-consulting/openclaw-inspector.git
 cd openclaw-inspector
 npm install
 
+# Run both backend + frontend in one command
+npm run dev:full
+```
+
+Open http://inspector.localhost:1355 (requires [portless](https://github.com/vercel-labs/portless)).
+
+Without portless:
+
+```bash
 # Terminal 1: Backend
-node server.js
+npm run dev:api
 
 # Terminal 2: Vite dev server with HMR
 npm run dev
