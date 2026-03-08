@@ -2,6 +2,11 @@ import type { SessionApiResponse, DangerData, Progress } from './types';
 
 const BASE = '';
 
+export async function fetchAgents(): Promise<string[]> {
+  const res = await fetch(`${BASE}/api/agents`);
+  return res.ok ? res.json() : [];
+}
+
 export async function fetchSessions(): Promise<SessionApiResponse[]> {
   const res = await fetch(`${BASE}/api/sessions`);
   return res.ok ? res.json() : [];
@@ -17,8 +22,8 @@ export async function fetchCSV(): Promise<string> {
   return res.ok ? res.text() : '';
 }
 
-export async function fetchSession(filename: string): Promise<string> {
-  const res = await fetch(`${BASE}/api/session/${encodeURIComponent(filename)}`);
+export async function fetchSession(agentId: string, filename: string): Promise<string> {
+  const res = await fetch(`${BASE}/api/session/${encodeURIComponent(agentId)}/${encodeURIComponent(filename)}`);
   if (!res.ok) throw new Error('Not found');
   return res.text();
 }
@@ -41,7 +46,12 @@ export async function saveProgress(data: Progress): Promise<void> {
   });
 }
 
-export async function searchSessions(query: string): Promise<string[]> {
+export interface SearchMatch {
+  agentId: string;
+  filename: string;
+}
+
+export async function searchSessions(query: string): Promise<SearchMatch[]> {
   if (!query || query.length < 2) return [];
   const res = await fetch(`${BASE}/api/search?q=${encodeURIComponent(query)}`);
   return res.ok ? res.json() : [];
@@ -49,9 +59,11 @@ export async function searchSessions(query: string): Promise<string[]> {
 
 export interface SubagentInfo {
   filename: string;
+  agentId: string;
   sessionId: string;
   label: string;
   parentFilename: string | null;
+  parentAgentId: string | null;
 }
 
 export async function fetchSubagents(): Promise<Record<string, SubagentInfo>> {
@@ -59,7 +71,7 @@ export async function fetchSubagents(): Promise<Record<string, SubagentInfo>> {
   return res.ok ? res.json() : {};
 }
 
-export function connectSSE(onFileChange: (data: { filename: string }) => void): EventSource {
+export function connectSSE(onFileChange: (data: { filename: string; agentId: string }) => void): EventSource {
   const sse = new EventSource(`${BASE}/api/events`);
   sse.addEventListener('file-change', (e: MessageEvent) => {
     onFileChange(JSON.parse(e.data));

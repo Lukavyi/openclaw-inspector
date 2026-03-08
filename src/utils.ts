@@ -54,9 +54,16 @@ export function extractTopicId(filename: string): string | null {
 
 export function progressKey(row: SessionRow | null | undefined): string {
   if (!row) return '';
+  const agent = row.agentId || 'main';
   const sid = row.SessionId || row.Filename;
   const topicId = extractTopicId(row.Filename);
-  return topicId ? `${sid}:${topicId}` : sid;
+  const base = topicId ? `${sid}:${topicId}` : sid;
+  return `${agent}:${base}`;
+}
+
+/** Cache key matching server format: agentId:filename */
+export function fileCacheKey(agentId: string, filename: string): string {
+  return `${agentId}:${filename}`;
 }
 
 export function shortName(fname: string): string {
@@ -100,7 +107,7 @@ export function matchesFilter(row: SessionRow, filterKey: string, progress: Prog
   if (filterKey === 'active') return reason.startsWith('active');
   if (filterKey === 'orphan') return reason.includes('orphan');
   if (filterKey === 'deleted') return reason.includes('deleted') || (row.Disk || '').toUpperCase() === 'DEL';
-  if (filterKey === 'danger') return !!dangerData[row.Filename];
+  if (filterKey === 'danger') return !!dangerData[fileCacheKey(row.agentId || 'main', row.Filename)];
   return true;
 }
 
@@ -126,8 +133,9 @@ export function matchesFilters(row: SessionRow, filters: Filters, progress: Prog
     if (!matchesAny) return false;
   }
 
-  // Danger filter
-  if (filters.dangerOnly && !dangerData[row.Filename]) return false;
+  // Danger filter (dangerData is keyed by agentId:filename)
+  const dangerCk = fileCacheKey(row.agentId || 'main', row.Filename);
+  if (filters.dangerOnly && !dangerData[dangerCk]) return false;
 
   return true;
 }

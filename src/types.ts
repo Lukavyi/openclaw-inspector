@@ -1,5 +1,6 @@
 export interface SessionRow {
   Filename: string;
+  agentId: string;
   SessionId: string;
   Disk: string;
   Reason: string;
@@ -107,6 +108,7 @@ export interface Toast {
 
 export interface SessionApiResponse {
   filename: string;
+  agentId: string;
   sessionId?: string;
   deleted?: boolean;
   status?: string;

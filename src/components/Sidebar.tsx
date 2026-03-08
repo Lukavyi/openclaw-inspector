@@ -1,6 +1,6 @@
 import { useMemo, useCallback, useRef, useEffect } from 'react';
 import { Virtuoso, VirtuosoHandle } from 'react-virtuoso';
-import { shortName, formatDate, formatDateFull, matchesFilters, sortSessions, progressKey } from '../utils';
+import { shortName, formatDate, formatDateFull, matchesFilters, sortSessions, progressKey, fileCacheKey } from '../utils';
 import type { SessionRow, Progress, DangerData, Filters } from '../types';
 import type { SubagentInfo } from '../api';
 
@@ -28,6 +28,38 @@ const SORTS = [
   { value: 'unread-asc', label: 'Unread ↑' },
 ] as const;
 
+// Deterministic colors for agent badges
+const AGENT_COLORS: Record<string, string> = {};
+const PALETTE = ['#6366f1', '#ec4899', '#14b8a6', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4', '#84cc16'];
+function agentColor(agentId: string): string {
+  if (!AGENT_COLORS[agentId]) {
+    let hash = 0;
+    for (let i = 0; i < agentId.length; i++) hash = (hash * 31 + agentId.charCodeAt(i)) | 0;
+    AGENT_COLORS[agentId] = PALETTE[Math.abs(hash) % PALETTE.length];
+  }
+  return AGENT_COLORS[agentId];
+}
+
+function AgentBadge({ agentId }: { agentId: string }) {
+  return (
+    <span
+      className="badge"
+      style={{
+        background: agentColor(agentId),
+        color: '#fff',
+        fontSize: 9,
+        padding: '1px 5px',
+        borderRadius: 6,
+        fontWeight: 600,
+        letterSpacing: 0.3,
+      }}
+      title={`Agent: ${agentId}`}
+    >
+      {agentId}
+    </span>
+  );
+}
+
 function ReasonBadge({ row }: { row: SessionRow }) {
   const reason = (row.Reason || '').toLowerCase();
   if (reason.startsWith('active')) return <span className="badge active">active</span>;
@@ -45,8 +77,8 @@ function ReadBadge({ pKey, progress }: { pKey: string; progress: Progress }) {
   return <span className="badge partial">…</span>;
 }
 
-function DangerBadge({ filename, dangerData }: { filename: string; dangerData: DangerData }) {
-  const dangers = dangerData[filename];
+function DangerBadge({ cacheKey, dangerData }: { cacheKey: string; dangerData: DangerData }) {
+  const dangers = dangerData[cacheKey];
   if (!dangers) return null;
   const crit = dangers.filter(d => d.severity === 'critical').length;
   const warn = dangers.filter(d => d.severity === 'warning').length;
@@ -57,9 +89,13 @@ function DangerBadge({ filename, dangerData }: { filename: string; dangerData: D
 
 interface SidebarProps {
   sessions: SessionRow[];
+  agents: string[];
+  agentFilter: string;
+  setAgentFilter: (a: string) => void;
   progress: Progress;
   dangerData: DangerData;
   currentFile: string | null;
+  currentAgentId: string | null;
   filters: Filters;
   setFilters: (f: Filters) => void;
   activeSort: string;
@@ -68,36 +104,45 @@ interface SidebarProps {
   setSearchQuery: (q: string) => void;
   contentMatches: Set<string> | null;
   subagentMap: Record<string, SubagentInfo>;
-  onSelect: (filename: string) => void;
+  onSelect: (filename: string, agentId: string) => void;
   isOpen: boolean;
   onClose: () => void;
 }
 
 export default function Sidebar({
-  sessions, progress, dangerData, currentFile,
+  sessions, agents, agentFilter, setAgentFilter, progress, dangerData, currentFile, currentAgentId,
   filters, setFilters, activeSort, setActiveSort,
   searchQuery, setSearchQuery, contentMatches, subagentMap, onSelect, isOpen, onClose
 }: SidebarProps) {
+  // Filter sessions by agent
+  const agentSessions = useMemo(() => {
+    if (agentFilter === '__all__') return sessions;
+    return sessions.filter(s => s.agentId === agentFilter);
+  }, [sessions, agentFilter]);
+
   // Build maps for tree view: subagent filename set + parent→children mapping
   const { subagentFilenames, childrenByParent } = useMemo(() => {
     const fnames = new Set<string>();
     const byParent = new Map<string, SubagentInfo[]>();
     for (const info of Object.values(subagentMap)) {
-      fnames.add(info.filename);
-      if (info.parentFilename) {
-        const arr = byParent.get(info.parentFilename) || [];
+      fnames.add(fileCacheKey(info.agentId, info.filename));
+      if (info.parentFilename && info.parentAgentId) {
+        const parentKey = fileCacheKey(info.parentAgentId, info.parentFilename);
+        const arr = byParent.get(parentKey) || [];
         arr.push(info);
-        byParent.set(info.parentFilename, arr);
+        byParent.set(parentKey, arr);
       }
     }
     return { subagentFilenames: fnames, childrenByParent: byParent };
   }, [subagentMap]);
+
   // Count sessions per filter for badges
   const counts = useMemo(() => {
     const c = { all: 0, unread: 0, partial: 0, done: 0, active: 0, orphan: 0, deleted: 0, danger: 0 };
-    sessions.forEach(row => {
+    agentSessions.forEach(row => {
       const reason = (row.Reason || '').toLowerCase();
       const p = progress[progressKey(row)];
+      const ck = fileCacheKey(row.agentId, row.Filename);
       c.all++;
       if (!p || !p.lastReadId) c.unread++;
       else if (p.readAll) c.done++;
@@ -105,15 +150,13 @@ export default function Sidebar({
       if (reason.startsWith('active')) c.active++;
       if (reason.includes('orphan')) c.orphan++;
       if (reason.includes('deleted') || (row.Disk || '').toUpperCase() === 'DEL') c.deleted++;
-      if (dangerData[row.Filename]) c.danger++;
+      if (dangerData[ck]) c.danger++;
     });
     return c;
-  }, [sessions, progress, dangerData]);
+  }, [agentSessions, progress, dangerData]);
 
-  // Items: parent sessions + their subagent children interleaved
   type SidebarItem = { type: 'session'; row: SessionRow; dimmed?: boolean } | { type: 'subagent'; info: SubagentInfo; row: SessionRow; dimmed?: boolean };
 
-  // Helper: check if a row matches the search query
   const matchesSearch = useCallback((row: SessionRow, q: string): boolean => {
     if (!q) return true;
     const cl = progress[progressKey(row)]?.customLabel || '';
@@ -123,25 +166,27 @@ export default function Sidebar({
       (row.Description || '').toLowerCase().includes(q) ||
       (row.Reason || '').toLowerCase().includes(q);
     if (localMatch) return true;
-    if (contentMatches && contentMatches.has(row.Filename)) return true;
+    if (contentMatches && contentMatches.has(fileCacheKey(row.agentId, row.Filename))) return true;
     return false;
   }, [progress, contentMatches]);
 
   const filtered = useMemo((): SidebarItem[] => {
     const q = searchQuery.toLowerCase();
-    const sorted = sortSessions(sessions, activeSort, progress);
+    const sorted = sortSessions(agentSessions, activeSort, progress);
     const sessionMap = new Map<string, SessionRow>();
-    sessions.forEach(r => sessionMap.set(r.Filename, r));
+    agentSessions.forEach(r => sessionMap.set(fileCacheKey(r.agentId, r.Filename), r));
 
     const items: SidebarItem[] = [];
     for (const r of sorted) {
-      if (subagentFilenames.has(r.Filename)) continue;
+      const rck = fileCacheKey(r.agentId, r.Filename);
+      if (subagentFilenames.has(rck)) continue;
       if (!matchesFilters(r, filters, progress, dangerData)) continue;
 
-      const children = childrenByParent.get(r.Filename) || [];
+      const children = childrenByParent.get(rck) || [];
       const childItems: { info: SubagentInfo; row: SessionRow; matches: boolean }[] = [];
       for (const child of children) {
-        const childRow = sessionMap.get(child.filename);
+        const childKey = fileCacheKey(child.agentId, child.filename);
+        const childRow = sessionMap.get(childKey);
         if (childRow) {
           childItems.push({ info: child, row: childRow, matches: matchesSearch(childRow, q) });
         }
@@ -150,33 +195,30 @@ export default function Sidebar({
       const parentMatches = matchesSearch(r, q);
       const anyChildMatches = childItems.some(c => c.matches);
 
-      // Show parent if it matches OR any child matches
       if (q && !parentMatches && !anyChildMatches) continue;
 
       items.push({ type: 'session', row: r });
       for (const child of childItems) {
-        // Dim children that don't match when search is active
         const dimmed = q ? !child.matches : false;
         items.push({ type: 'subagent', info: child.info, row: child.row, dimmed });
       }
     }
     return items;
-  }, [sessions, filters, activeSort, searchQuery, progress, dangerData, contentMatches, subagentFilenames, childrenByParent, matchesSearch]);
+  }, [agentSessions, filters, activeSort, searchQuery, progress, dangerData, contentMatches, subagentFilenames, childrenByParent, matchesSearch]);
 
   const virtuosoRef = useRef<VirtuosoHandle>(null);
   const initialScrollDone = useRef(false);
 
-  // Scroll to selected session on mount
   useEffect(() => {
     if (initialScrollDone.current || !currentFile || filtered.length === 0) return;
-    const idx = filtered.findIndex(item => item.row.Filename === currentFile);
+    const idx = filtered.findIndex(item => item.row.Filename === currentFile && item.row.agentId === currentAgentId);
     if (idx >= 0) {
       initialScrollDone.current = true;
       setTimeout(() => {
         virtuosoRef.current?.scrollToIndex({ index: idx, align: 'center', behavior: 'auto' });
       }, 100);
     }
-  }, [filtered, currentFile]);
+  }, [filtered, currentFile, currentAgentId]);
 
   const toggleLifecycle = (key: string) => {
     const lc = filters.lifecycle.includes(key)
@@ -191,6 +233,7 @@ export default function Sidebar({
     const row = item.row;
     const fname = row.Filename;
     const pk = progressKey(row);
+    const ck = fileCacheKey(row.agentId, fname);
     const p = progress[pk];
     const isSubagent = item.type === 'subagent';
     const isDimmed = !!item.dimmed;
@@ -198,9 +241,9 @@ export default function Sidebar({
     const label = isSubagent
       ? subInfo?.label || ''
       : p?.customLabel || row.Label || '';
-    const parentLabel = isSubagent && subInfo?.parentFilename
+    const parentLabel = isSubagent && subInfo?.parentFilename && subInfo?.parentAgentId
       ? (() => {
-          const parentRow = sessions.find(r => r.Filename === subInfo.parentFilename);
+          const parentRow = sessions.find(r => r.Filename === subInfo.parentFilename && r.agentId === subInfo.parentAgentId);
           if (!parentRow) return '';
           const parentPk = progressKey(parentRow);
           return progress[parentPk]?.customLabel || parentRow.Label || shortName(subInfo.parentFilename);
@@ -212,18 +255,20 @@ export default function Sidebar({
     const createdFull = row._createdAt ? formatDateFull(new Date(row._createdAt)) : '';
     const lastMsgStr = row._lastModified ? formatDate(new Date(row._lastModified)) : '';
     const lastMsgFull = row._lastModified ? formatDateFull(new Date(row._lastModified)) : '';
+    const showAgentBadge = agentFilter === '__all__';
 
     return (
       <div
-        className={`session-item ${currentFile === fname ? 'selected' : ''} ${isSubagent ? 'subagent-child' : ''} ${isDimmed ? 'dimmed' : ''}`}
-        onClick={() => onSelect(fname)}
+        className={`session-item ${currentFile === fname && currentAgentId === row.agentId ? 'selected' : ''} ${isSubagent ? 'subagent-child' : ''} ${isDimmed ? 'dimmed' : ''}`}
+        onClick={() => onSelect(fname, row.agentId)}
       >
         {isSubagent && parentLabel && <div className="subagent-parent-ref">↳ {parentLabel}</div>}
         <div className="name">
           {isSubagent && <span className="subagent-tree-icon">🚀</span>}
-          <DangerBadge filename={fname} dangerData={dangerData} />
+          <DangerBadge cacheKey={ck} dangerData={dangerData} />
           <ReadBadge pKey={pk} progress={progress} />
           {!isSubagent && <ReasonBadge row={row} />}
+          {showAgentBadge && <AgentBadge agentId={row.agentId} />}
           {shortName(fname)}
           {totalMsgs ? <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 400 }}>{totalMsgs} msgs</span> : null}
         </div>
@@ -242,7 +287,7 @@ export default function Sidebar({
         {row.Description && <div className="desc">{row.Description}</div>}
       </div>
     );
-  }, [filtered, progress, dangerData, currentFile, onSelect, sessions]);
+  }, [filtered, progress, dangerData, currentFile, currentAgentId, onSelect, sessions, agentFilter]);
 
   return (
     <div className={`sidebar ${isOpen ? 'mobile-open' : ''}`}>
@@ -250,6 +295,38 @@ export default function Sidebar({
         <h3>🔍 OpenClaw Inspector</h3>
         <button className="mobile-back" onClick={onClose}>✕</button>
       </div>
+
+      {/* Agent filter pills */}
+      {agents.length > 1 && (
+        <div className="sidebar-agents" style={{ padding: '4px 8px', display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+          <button
+            className={`filter-btn ${agentFilter === '__all__' ? 'active' : ''}`}
+            onClick={() => setAgentFilter('__all__')}
+            style={{ fontSize: 11, padding: '2px 8px' }}
+          >
+            All ({sessions.length})
+          </button>
+          {agents.map(a => {
+            const count = sessions.filter(s => s.agentId === a).length;
+            return (
+              <button
+                key={a}
+                className={`filter-btn ${agentFilter === a ? 'active' : ''}`}
+                onClick={() => setAgentFilter(a)}
+                style={{
+                  fontSize: 11,
+                  padding: '2px 8px',
+                  borderColor: agentFilter === a ? agentColor(a) : undefined,
+                  color: agentFilter === a ? agentColor(a) : undefined,
+                }}
+              >
+                {a} ({count})
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       <div className="sidebar-search">
         <input
           type="text"
@@ -310,7 +387,7 @@ export default function Sidebar({
       <div className="stats">
         {(() => {
           const parentCount = filtered.filter(i => i.type === 'session').length;
-          const totalParent = sessions.filter(r => !subagentFilenames.has(r.Filename)).length;
+          const totalParent = agentSessions.filter(r => !subagentFilenames.has(fileCacheKey(r.agentId, r.Filename))).length;
           return parentCount !== totalParent
             ? <span>Showing {parentCount} of {totalParent}</span>
             : <span>{totalParent} sessions</span>;

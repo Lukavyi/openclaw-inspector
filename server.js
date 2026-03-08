@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Session Viewer Server — serves UI + watches JSONL files via SSE
-// Optimized: single-pass cache on startup, incremental updates on file change
+// Multi-agent: discovers all agent dirs under ~/.openclaw/agents/*/sessions/ and ~/.clawdbot/agents/*/sessions/
 import { createServer } from "node:http";
 import {
   readFileSync, writeFileSync, readdirSync, statSync, watch, existsSync,
@@ -13,13 +13,36 @@ import { homedir } from "node:os";
 import { execSync } from "node:child_process";
 
 const PORT = parseInt(process.env.PORT || "9100", 10);
-const SESSIONS_DIR = process.env.SESSIONS_DIR || (() => {
-  const openclaw = join(homedir(), ".openclaw", "agents", "main", "sessions");
-  const clawdbot = join(homedir(), ".clawdbot", "agents", "main", "sessions");
-  if (existsSync(openclaw)) return openclaw;
-  if (existsSync(clawdbot)) return clawdbot;
-  return openclaw;
-})();
+
+// Multi-agent discovery
+// If SESSIONS_DIR is set, use it as single agent "custom"
+// Otherwise discover all agents from ~/.openclaw/agents/*/sessions/ and ~/.clawdbot/agents/*/sessions/
+const CUSTOM_SESSIONS_DIR = process.env.SESSIONS_DIR || null;
+
+function discoverAgentDirs() {
+  if (CUSTOM_SESSIONS_DIR) {
+    return { custom: CUSTOM_SESSIONS_DIR };
+  }
+  const agents = {};
+  const bases = [
+    join(homedir(), ".openclaw", "agents"),
+    join(homedir(), ".clawdbot", "agents"),
+  ];
+  for (const base of bases) {
+    if (!existsSync(base)) continue;
+    for (const name of readdirSync(base)) {
+      if (agents[name]) continue; // first found wins (openclaw > clawdbot)
+      const sessDir = join(base, name, "sessions");
+      if (existsSync(sessDir)) {
+        agents[name] = sessDir;
+      }
+    }
+  }
+  return agents;
+}
+
+let agentDirs = discoverAgentDirs(); // { agentId: sessionsPath }
+
 const PROJECT_DIR = new URL(".", import.meta.url).pathname;
 const STATIC_DIR = join(new URL(".", import.meta.url).pathname, "dist");
 const DATA_DIR = process.env.DATA_DIR || join(homedir(), ".openclaw-inspector");
@@ -73,16 +96,15 @@ function broadcast(event, data) {
 }
 
 // ============================================================
-// IN-MEMORY CACHE
+// IN-MEMORY CACHE (multi-agent aware)
 // ============================================================
 
-// Per-file cached data
-// cache[filename] = { session, count, dangers, subagentScanDone }
+// cache["agentId:filename"] = { session, msgCount, dangers, subagentScanDone, hasSessionsSpawn, subagentKeys }
 const cache = {};
 // Aggregated results (rebuilt from cache)
-let cachedSessions = [];    // array of session info objects
-let cachedCounts = {};       // filename -> message count
-let cachedDangers = {};      // filename -> danger hits array
+let cachedSessions = [];    // array of session info objects (with agentId)
+let cachedCounts = {};       // "agentId:filename" -> message count
+let cachedDangers = {};      // "agentId:filename" -> danger hits array
 let cachedSubagents = {};    // key -> SubagentInfo
 
 // Danger rules (loaded once, reloaded if file changes)
@@ -101,6 +123,10 @@ function loadDangerRules() {
   } catch { return []; }
 }
 
+function cacheKey(agentId, filename) {
+  return `${agentId}:${filename}`;
+}
+
 // Read first line of a file efficiently (only first 4KB)
 function readFirstLine(fullPath) {
   try {
@@ -114,9 +140,11 @@ function readFirstLine(fullPath) {
   } catch { return null; }
 }
 
-// Session metadata from sessions.json
-function getSessionMeta() {
-  const metaPath = join(SESSIONS_DIR, "sessions.json");
+// Session metadata from sessions.json (per agent)
+function getSessionMeta(agentId) {
+  const sessDir = agentDirs[agentId];
+  if (!sessDir) return {};
+  const metaPath = join(sessDir, "sessions.json");
   if (!existsSync(metaPath)) return {};
   try {
     const data = JSON.parse(readFileSync(metaPath, "utf-8"));
@@ -131,6 +159,14 @@ function getSessionMeta() {
   } catch { return {}; }
 }
 
+function getAllSessionMeta() {
+  const result = {};
+  for (const agentId of Object.keys(agentDirs)) {
+    result[agentId] = getSessionMeta(agentId);
+  }
+  return result;
+}
+
 function resolveStatus(filename, metaById) {
   if (filename.includes(".deleted.")) return { status: "deleted", label: "" };
   const base = filename.replace(/\.jsonl$/, "").replace(/\.deleted\.\d+$/, "");
@@ -143,13 +179,13 @@ function resolveStatus(filename, metaById) {
 }
 
 // Scan a single file: extract session info, count messages, find dangers
-// Uses streaming readline for memory efficiency
-async function scanFile(filename) {
-  const fullPath = join(SESSIONS_DIR, filename);
+async function scanFile(agentId, filename) {
+  const sessDir = agentDirs[agentId];
+  if (!sessDir) return null;
+  const fullPath = join(sessDir, filename);
   let stat;
   try { stat = statSync(fullPath); } catch { return null; }
 
-  // First line for session metadata (fast 4KB read)
   const firstLineText = readFirstLine(fullPath);
   let createdAt = null;
   let sessionId = null;
@@ -165,6 +201,7 @@ async function scanFile(filename) {
 
   const session = {
     filename,
+    agentId,
     size: stat.size,
     mtime: stat.mtimeMs,
     createdAt,
@@ -172,7 +209,6 @@ async function scanFile(filename) {
     deleted: filename.includes(".deleted."),
   };
 
-  // Stream the file line by line for counts + danger + subagent scanning
   let msgCount = 0;
   const dangers = [];
   let hasSessionsSpawn = false;
@@ -187,18 +223,15 @@ async function scanFile(filename) {
     rl.on("line", (line) => {
       if (!line) return;
 
-      // Fast message count via substring
       if (line.includes('"type":"message"')) {
         msgCount++;
       }
 
-      // Subagent detection
       if (line.includes("sessions_spawn")) hasSessionsSpawn = true;
       if (line.includes("childSessionKey")) {
         subagentKeys.push(line);
       }
 
-      // Danger scanning (needs JSON parse for toolCall analysis)
       if (!line.includes('"toolCall"')) return;
       let obj;
       try { obj = JSON.parse(line); } catch { return; }
@@ -212,7 +245,6 @@ async function scanFile(filename) {
         const toolName = block.name || "";
         const toolAction = src?.action || "";
 
-        // Tool-based rules
         for (const rule of dangerRules) {
           if (!rule.toolRules) continue;
           for (const tr of rule.toolRules) {
@@ -272,62 +304,73 @@ async function scanFile(filename) {
 
 // Build aggregated results from cache
 function rebuildAggregates() {
-  const meta = getSessionMeta();
+  const allMeta = getAllSessionMeta();
   const sessions = [];
   const counts = {};
   const dangers = {};
 
-  for (const [filename, entry] of Object.entries(cache)) {
+  for (const [ck, entry] of Object.entries(cache)) {
     const s = { ...entry.session };
-    const info = resolveStatus(filename, meta);
+    const meta = allMeta[s.agentId] || {};
+    const info = resolveStatus(s.filename, meta);
     s.status = info.status;
     s.label = info.label;
     sessions.push(s);
-    counts[filename] = entry.msgCount;
-    if (entry.dangers.length > 0) dangers[filename] = entry.dangers;
+    counts[ck] = entry.msgCount;
+    if (entry.dangers.length > 0) dangers[ck] = entry.dangers;
   }
 
   cachedSessions = sessions;
   cachedCounts = counts;
   cachedDangers = dangers;
 
-  // Rebuild subagents
-  rebuildSubagents(meta);
+  rebuildSubagents(allMeta);
 }
 
-function rebuildSubagents(meta) {
-  if (!meta) meta = getSessionMeta();
-  const metaPath = join(SESSIONS_DIR, "sessions.json");
+function rebuildSubagents(allMeta) {
+  if (!allMeta) allMeta = getAllSessionMeta();
   const result = {};
-  const files = Object.keys(cache).filter(f => f.endsWith(".jsonl"));
 
-  if (existsSync(metaPath)) {
-    try {
-      const data = JSON.parse(readFileSync(metaPath, "utf-8"));
-      for (const [key, val] of Object.entries(data)) {
-        if (key.includes("subagent")) {
-          const sid = val.sessionId;
-          if (sid) {
-            const file = files.find(f => f.startsWith(sid));
-            if (file) {
-              result[key] = { filename: file, sessionId: sid, label: val.label || "", parentFilename: null };
+  for (const agentId of Object.keys(agentDirs)) {
+    const sessDir = agentDirs[agentId];
+    const metaPath = join(sessDir, "sessions.json");
+    const files = Object.keys(cache)
+      .filter(k => k.startsWith(agentId + ":"))
+      .map(k => k.slice(agentId.length + 1))
+      .filter(f => f.endsWith(".jsonl"));
+
+    if (existsSync(metaPath)) {
+      try {
+        const data = JSON.parse(readFileSync(metaPath, "utf-8"));
+        for (const [key, val] of Object.entries(data)) {
+          if (key.includes("subagent")) {
+            const sid = val.sessionId;
+            if (sid) {
+              const file = files.find(f => f.startsWith(sid));
+              if (file) {
+                result[`${agentId}:${key}`] = { filename: file, agentId, sessionId: sid, label: val.label || "", parentFilename: null, parentAgentId: agentId };
+              }
             }
           }
         }
-      }
-    } catch {}
+      } catch {}
+    }
   }
 
   // Find parent files from cached subagentKeys
   const subKeys = Object.keys(result);
   if (subKeys.length > 0) {
-    for (const [filename, entry] of Object.entries(cache)) {
+    for (const [ck, entry] of Object.entries(cache)) {
       if (!entry.hasSessionsSpawn) continue;
+      const [entryAgentId] = ck.split(":", 1);
       for (const line of entry.subagentKeys) {
         for (const sk of subKeys) {
           if (result[sk].parentFilename) continue;
-          if (line.includes(sk)) {
-            result[sk].parentFilename = filename;
+          // Extract the original key (without agentId prefix) for matching
+          const origKey = sk.includes(":") ? sk.slice(sk.indexOf(":") + 1) : sk;
+          if (line.includes(origKey)) {
+            result[sk].parentFilename = entry.session.filename;
+            result[sk].parentAgentId = entryAgentId;
           }
         }
       }
@@ -337,59 +380,71 @@ function rebuildSubagents(meta) {
   cachedSubagents = result;
 }
 
-// Initial full scan
+// Initial full scan across all agents
 async function initialScan() {
   const start = Date.now();
-  const files = readdirSync(SESSIONS_DIR).filter(
-    (f) => f.endsWith(".jsonl") || f.includes(".deleted.")
-  );
+  let totalFiles = 0;
 
-  console.log(`🔍 Scanning ${files.length} session files...`);
+  for (const [agentId, sessDir] of Object.entries(agentDirs)) {
+    let files;
+    try {
+      files = readdirSync(sessDir).filter(
+        (f) => f.endsWith(".jsonl") || f.includes(".deleted.")
+      );
+    } catch { continue; }
 
-  // Scan files in parallel batches of 20
-  const BATCH = 20;
-  for (let i = 0; i < files.length; i += BATCH) {
-    const batch = files.slice(i, i + BATCH);
-    const results = await Promise.all(batch.map(f => scanFile(f)));
-    for (const result of results) {
-      if (result) {
-        cache[result.session.filename] = result;
+    console.log(`🔍 Scanning ${files.length} session files for agent "${agentId}"...`);
+    totalFiles += files.length;
+
+    const BATCH = 20;
+    for (let i = 0; i < files.length; i += BATCH) {
+      const batch = files.slice(i, i + BATCH);
+      const results = await Promise.all(batch.map(f => scanFile(agentId, f)));
+      for (const result of results) {
+        if (result) {
+          cache[cacheKey(agentId, result.session.filename)] = result;
+        }
       }
     }
   }
 
   rebuildAggregates();
-  console.log(`✅ Cache built in ${Date.now() - start}ms (${files.length} files)`);
+  console.log(`✅ Cache built in ${Date.now() - start}ms (${totalFiles} files across ${Object.keys(agentDirs).length} agents)`);
 }
 
 // Incremental update for a single file
-async function updateFile(filename) {
-  const fullPath = join(SESSIONS_DIR, filename);
+async function updateFile(agentId, filename) {
+  const sessDir = agentDirs[agentId];
+  if (!sessDir) return;
+  const fullPath = join(sessDir, filename);
+  const ck = cacheKey(agentId, filename);
   if (!existsSync(fullPath)) {
-    delete cache[filename];
+    delete cache[ck];
   } else {
-    const result = await scanFile(filename);
+    const result = await scanFile(agentId, filename);
     if (result) {
-      cache[filename] = result;
+      cache[ck] = result;
     }
   }
   rebuildAggregates();
 }
 
-// --- Watch sessions dir ---
-let fsWatcher;
-try {
-  fsWatcher = watch(SESSIONS_DIR, { persistent: true }, (eventType, filename) => {
-    if (!filename) return;
-    if (filename.endsWith(".jsonl") || filename.includes(".deleted.")) {
-      // Incremental cache update
-      updateFile(filename).catch(() => {});
-      broadcast("file-change", { eventType, filename });
-    }
-  });
-  console.log(`👁️  Watching ${SESSIONS_DIR}`);
-} catch (e) {
-  console.error(`Cannot watch ${SESSIONS_DIR}: ${e.message}`);
+// --- Watch ALL agent session dirs ---
+const fsWatchers = [];
+for (const [agentId, sessDir] of Object.entries(agentDirs)) {
+  try {
+    const watcher = watch(sessDir, { persistent: true }, (eventType, filename) => {
+      if (!filename) return;
+      if (filename.endsWith(".jsonl") || filename.includes(".deleted.")) {
+        updateFile(agentId, filename).catch(() => {});
+        broadcast("file-change", { eventType, filename, agentId });
+      }
+    });
+    fsWatchers.push(watcher);
+    console.log(`👁️  Watching ${sessDir} (agent: ${agentId})`);
+  } catch (e) {
+    console.error(`Cannot watch ${sessDir}: ${e.message}`);
+  }
 }
 
 // --- MIME ---
@@ -425,7 +480,14 @@ const server = createServer((req, res) => {
     return;
   }
 
-  // API: list sessions (from cache)
+  // API: list agents
+  if (path === "/api/agents") {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(Object.keys(agentDirs)));
+    return;
+  }
+
+  // API: list sessions (from cache) - includes agentId
   if (path === "/api/sessions") {
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify(cachedSessions));
@@ -434,25 +496,26 @@ const server = createServer((req, res) => {
 
   // API: session meta
   if (path === "/api/meta") {
-    const files = Object.keys(cache);
-    const meta = getSessionMeta();
+    const allMeta = getAllSessionMeta();
     const result = {};
-    for (const f of files) {
-      result[f] = resolveStatus(f, meta);
+    for (const [ck, entry] of Object.entries(cache)) {
+      const agentId = entry.session.agentId;
+      const meta = allMeta[agentId] || {};
+      result[ck] = resolveStatus(entry.session.filename, meta);
     }
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify(result));
     return;
   }
 
-  // API: message counts (from cache)
+  // API: message counts (from cache) - keyed by agentId:filename
   if (path === "/api/counts") {
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify(cachedCounts));
     return;
   }
 
-  // API: danger scan (from cache)
+  // API: danger scan (from cache) - keyed by agentId:filename
   if (path === "/api/danger") {
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify(cachedDangers));
@@ -466,16 +529,35 @@ const server = createServer((req, res) => {
     return;
   }
 
-  // API: read session file (still reads from disk - individual file)
+  // API: read session file - /api/session/:agentId/:filename
   if (path.startsWith("/api/session/")) {
-    const filename = decodeURIComponent(path.slice("/api/session/".length));
-    const fullPath = resolve(SESSIONS_DIR, filename);
-    if (!fullPath.startsWith(SESSIONS_DIR) || !existsSync(fullPath)) {
-      res.writeHead(404);
-      res.end("Not found");
+    const rest = decodeURIComponent(path.slice("/api/session/".length));
+    const slashIdx = rest.indexOf("/");
+    if (slashIdx === -1) {
+      // Backward compat: /api/session/:filename — assume "main" or "custom"
+      const filename = rest;
+      const agentId = CUSTOM_SESSIONS_DIR ? "custom" : "main";
+      const sessDir = agentDirs[agentId];
+      if (!sessDir) { res.writeHead(404); res.end("Not found"); return; }
+      const fullPath = resolve(sessDir, filename);
+      if (!fullPath.startsWith(sessDir) || !existsSync(fullPath)) {
+        res.writeHead(404); res.end("Not found"); return;
+      }
+      readFile(fullPath, "utf-8", (err, content) => {
+        if (err) { res.writeHead(500); res.end("Error"); return; }
+        res.writeHead(200, { "Content-Type": "text/plain" });
+        res.end(content);
+      });
       return;
     }
-    // Async read for individual session
+    const agentId = rest.slice(0, slashIdx);
+    const filename = rest.slice(slashIdx + 1);
+    const sessDir = agentDirs[agentId];
+    if (!sessDir) { res.writeHead(404); res.end("Agent not found"); return; }
+    const fullPath = resolve(sessDir, filename);
+    if (!fullPath.startsWith(sessDir) || !existsSync(fullPath)) {
+      res.writeHead(404); res.end("Not found"); return;
+    }
     readFile(fullPath, "utf-8", (err, content) => {
       if (err) { res.writeHead(500); res.end("Error"); return; }
       res.writeHead(200, { "Content-Type": "text/plain" });
@@ -542,7 +624,7 @@ const server = createServer((req, res) => {
     return;
   }
 
-  // API: full-text search across all sessions
+  // API: full-text search across all sessions (all agents)
   if (path === "/api/search") {
     const q = (url.searchParams.get("q") || "").toLowerCase().trim();
     if (!q || q.length < 2) {
@@ -550,21 +632,22 @@ const server = createServer((req, res) => {
       res.end("[]");
       return;
     }
-    // Async search - don't block event loop
-    const files = Object.keys(cache).filter(f => f.endsWith(".jsonl"));
+    const entries = Object.entries(cache).filter(([k]) => k.endsWith(".jsonl"));
     const matches = [];
-    let pending = files.length;
+    let pending = entries.length;
     if (pending === 0) {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end("[]");
       return;
     }
-    for (const f of files) {
-      const fullPath = resolve(SESSIONS_DIR, f);
-      if (!fullPath.startsWith(SESSIONS_DIR)) { if (--pending === 0) done(); continue; }
+    for (const [ck, entry] of entries) {
+      const sessDir = agentDirs[entry.session.agentId];
+      if (!sessDir) { if (--pending === 0) done(); continue; }
+      const fullPath = resolve(sessDir, entry.session.filename);
+      if (!fullPath.startsWith(sessDir)) { if (--pending === 0) done(); continue; }
       readFile(fullPath, "utf-8", (err, content) => {
         if (!err && content.toLowerCase().includes(q)) {
-          matches.push(f);
+          matches.push({ agentId: entry.session.agentId, filename: entry.session.filename });
         }
         if (--pending === 0) done();
       });
@@ -601,7 +684,7 @@ const HOST = process.env.HOST || "127.0.0.1";
 initialScan().then(() => {
   server.listen(PORT, HOST, () => {
     console.log(`🖥️  Session Viewer: http://localhost:${PORT}`);
-    console.log(`📂 Sessions: ${SESSIONS_DIR}`);
+    console.log(`📂 Agents: ${Object.keys(agentDirs).join(", ")}`);
     console.log(`📊 CSV: ${CSV_PATH}`);
     console.log(`💾 Data: ${DATA_DIR}`);
   });

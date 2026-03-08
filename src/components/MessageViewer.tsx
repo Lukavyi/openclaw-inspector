@@ -220,6 +220,7 @@ export default function MessageViewer({
             <SubagentInline
               childSessionKey={sub.childSessionKey}
               filename={sub.info.filename}
+              agentId={sub.info.agentId}
               label={sub.info.label}
               task={sub.task}
               progress={progress}

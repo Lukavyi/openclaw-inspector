@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { fetchSessions, fetchCounts, fetchCSV, fetchDanger, fetchProgress, saveProgress as saveProgressApi, fetchSession, connectSSE, searchSessions, fetchSubagents } from './api';
-import type { SubagentInfo } from './api';
-import { parseCSV, shortName, progressKey, extractTopicId } from './utils';
+import { fetchSessions, fetchCounts, fetchCSV, fetchDanger, fetchProgress, saveProgress as saveProgressApi, fetchSession, connectSSE, searchSessions, fetchSubagents, fetchAgents } from './api';
+import type { SubagentInfo, SearchMatch } from './api';
+import { parseCSV, shortName, progressKey, extractTopicId, fileCacheKey } from './utils';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import Sidebar from './components/Sidebar';
 import MessageViewer from './components/MessageViewer';
@@ -36,7 +36,6 @@ function parseJSONL(text: string): { entries: SessionEntry[]; parseErrors: Parse
         error: e instanceof Error ? e.message : String(e),
       };
       parseErrors.push(err);
-      // Add a synthetic entry so it's visible in the UI
       entries.push({
         type: '_parseError',
         _parseError: err,
@@ -48,10 +47,13 @@ function parseJSONL(text: string): { entries: SessionEntry[]; parseErrors: Parse
 }
 
 export default function App() {
+  const [agents, setAgents] = useState<string[]>([]);
+  const [agentFilter, setAgentFilter] = useLocalStorage<string>('inspector_agentFilter', '__all__');
   const [sessions, setSessions] = useState<SessionRow[]>([]);
   const [progress, setProgress] = useState<Progress>({});
   const [dangerData, setDangerData] = useState<DangerData>({});
   const [currentFile, setCurrentFile] = useLocalStorage<string | null>('inspector_currentFile', null);
+  const [currentAgentId, setCurrentAgentId] = useLocalStorage<string | null>('inspector_currentAgentId', null);
   const [currentEntries, setCurrentEntries] = useState<SessionEntry[]>([]);
   const [currentRow, setCurrentRow] = useState<SessionRow | null>(null);
   const [filters, setFilters] = useLocalStorage<Filters>('inspector_filters', DEFAULT_FILTERS);
@@ -76,8 +78,9 @@ export default function App() {
     const q = sidebarSearch.trim();
     if (q.length < 2) { setContentMatches(null); return; }
     searchTimerRef.current = setTimeout(async () => {
-      const results = await searchSessions(q);
-      setContentMatches(new Set(results));
+      const results: SearchMatch[] = await searchSessions(q);
+      // Build set of "agentId:filename" for matching
+      setContentMatches(new Set(results.map(r => fileCacheKey(r.agentId, r.filename))));
     }, 300);
     return () => { if (searchTimerRef.current) clearTimeout(searchTimerRef.current); };
   }, [sidebarSearch]);
@@ -89,6 +92,8 @@ export default function App() {
   sessionsRef.current = sessions;
   const currentFileRef = useRef(currentFile);
   currentFileRef.current = currentFile;
+  const currentAgentIdRef = useRef(currentAgentId);
+  currentAgentIdRef.current = currentAgentId;
   const currentEntriesRef = useRef(currentEntries);
   currentEntriesRef.current = currentEntries;
 
@@ -110,52 +115,64 @@ export default function App() {
   // Load initial data
   useEffect(() => {
     (async () => {
-      const [sessData, counts, csvText, danger, prog, subs] = await Promise.all([
-        fetchSessions(), fetchCounts(), fetchCSV(), fetchDanger(), fetchProgress(), fetchSubagents()
+      const [agentList, sessData, counts, csvText, danger, prog, subs] = await Promise.all([
+        fetchAgents(), fetchSessions(), fetchCounts(), fetchCSV(), fetchDanger(), fetchProgress(), fetchSubagents()
       ]);
+      setAgents(agentList);
       setSubagentMap(subs);
 
       const csvRows = csvText ? parseCSV(csvText) : [];
       const csvMap: Record<string, Record<string, string | undefined>> = {};
       csvRows.forEach(r => { csvMap[r.Filename] = r; });
 
-      // Migrate progress: filename-keyed → sessionId-keyed → composite sessionId:topicId
+      // Migrate progress: old keys (without agentId prefix) → new keys with agentId
       const migratedProg: Progress = { ...prog };
-      const sidMap: Record<string, string> = {};
+      const sidMap: Record<string, { sessionId: string; agentId: string }> = {};
       sessData.forEach(s => {
-        if (s.sessionId) sidMap[s.filename] = s.sessionId;
+        if (s.sessionId) sidMap[s.filename] = { sessionId: s.sessionId, agentId: s.agentId };
       });
-      // Step 1: migrate filename keys → sessionId keys
+
+      // Step 1: migrate old filename keys → new agentId-prefixed keys
       for (const [key, val] of Object.entries(prog)) {
         if (key.endsWith('.jsonl') || key.includes('.deleted.')) {
-          const sid = sidMap[key];
-          if (sid && !migratedProg[sid]) {
-            migratedProg[sid] = val;
+          const info = sidMap[key];
+          const agentId = info?.agentId || 'main';
+          const sid = info?.sessionId || key;
+          const topicId = extractTopicId(key);
+          const newKey = topicId ? `${agentId}:${sid}:${topicId}` : `${agentId}:${sid}`;
+          if (!migratedProg[newKey]) {
+            migratedProg[newKey] = val;
           }
           delete migratedProg[key];
         }
       }
-      // Step 2: migrate sessionId keys → composite sessionId:topicId keys
-      // For topic files, if composite key doesn't exist but plain sessionId key does, copy it
+
+      // Step 2: migrate old sessionId-only keys to agentId-prefixed
       for (const s of sessData) {
+        if (!s.sessionId) continue;
         const topicId = extractTopicId(s.filename);
-        if (!topicId || !s.sessionId) continue;
-        const compositeKey = `${s.sessionId}:${topicId}`;
-        if (!migratedProg[compositeKey] && migratedProg[s.sessionId]?.lastReadId) {
-          migratedProg[compositeKey] = { ...migratedProg[s.sessionId] };
+        const oldKey = topicId ? `${s.sessionId}:${topicId}` : s.sessionId;
+        const newKey = topicId ? `${s.agentId}:${s.sessionId}:${topicId}` : `${s.agentId}:${s.sessionId}`;
+        if (migratedProg[oldKey] && !migratedProg[newKey]) {
+          migratedProg[newKey] = migratedProg[oldKey];
         }
+        // Keep old key for now to avoid data loss, will be cleaned up naturally
       }
 
       const built: SessionRow[] = sessData.map(s => {
         const csv = csvMap[s.filename] || {};
-        const total = counts[s.filename] || 0;
+        const ck = fileCacheKey(s.agentId, s.filename);
+        const total = counts[ck] || 0;
         const topicId = extractTopicId(s.filename);
-        const pKey = topicId && s.sessionId ? `${s.sessionId}:${topicId}` : (s.sessionId || s.filename);
+        const pKey = topicId && s.sessionId
+          ? `${s.agentId}:${s.sessionId}:${topicId}`
+          : `${s.agentId}:${s.sessionId || s.filename}`;
         if (!migratedProg[pKey]) migratedProg[pKey] = {};
         migratedProg[pKey].totalMsgs = total;
         if (!migratedProg[pKey].lastReadId) migratedProg[pKey].unreadCount = total;
         return {
           Filename: s.filename,
+          agentId: s.agentId,
           SessionId: s.sessionId || s.filename,
           Disk: s.deleted ? 'DEL' : 'LIVE',
           'Web UI': csv['Web UI'] || '',
@@ -175,10 +192,10 @@ export default function App() {
       progressRef.current = prog;
       setDangerData(danger);
 
-      if (currentFile) {
-        const row = built.find(r => r.Filename === currentFile);
+      if (currentFile && currentAgentId) {
+        const row = built.find(r => r.Filename === currentFile && r.agentId === currentAgentId);
         if (row) {
-          loadSessionData(currentFile, row, prog);
+          loadSessionData(currentAgentId, currentFile, row, prog);
         }
       }
     })();
@@ -187,7 +204,7 @@ export default function App() {
   // SSE
   useEffect(() => {
     const sse = connectSSE(async (data) => {
-      const { filename } = data;
+      const { filename, agentId } = data;
 
       try {
         const [counts, sessData] = await Promise.all([fetchCounts(), fetchSessions()]);
@@ -197,14 +214,17 @@ export default function App() {
         csvRows.forEach(r => { csvMap[r.Filename] = r; });
 
         const newProg: Progress = { ...progressRef.current };
-        const sidMap: Record<string, string> = {};
-        sessData.forEach(s => { if (s.sessionId) sidMap[s.filename] = s.sessionId; });
+        const sidMap: Record<string, { sessionId: string; agentId: string }> = {};
+        sessData.forEach(s => { if (s.sessionId) sidMap[s.filename] = { sessionId: s.sessionId, agentId: s.agentId }; });
 
         const built: SessionRow[] = sessData.map(s => {
           const csv = csvMap[s.filename] || {};
-          const total = counts[s.filename] || 0;
+          const ck = fileCacheKey(s.agentId, s.filename);
+          const total = counts[ck] || 0;
           const topicId = extractTopicId(s.filename);
-          const pk = topicId && s.sessionId ? `${s.sessionId}:${topicId}` : (s.sessionId || s.filename);
+          const pk = topicId && s.sessionId
+            ? `${s.agentId}:${s.sessionId}:${topicId}`
+            : `${s.agentId}:${s.sessionId || s.filename}`;
           const oldTotal = newProg[pk]?.totalMsgs || 0;
           if (!newProg[pk]) newProg[pk] = {};
           newProg[pk].totalMsgs = total;
@@ -214,6 +234,7 @@ export default function App() {
           }
           return {
             Filename: s.filename,
+            agentId: s.agentId,
             SessionId: s.sessionId || s.filename,
             Disk: s.deleted ? 'DEL' : 'LIVE',
             'Web UI': csv['Web UI'] || '',
@@ -228,32 +249,36 @@ export default function App() {
         });
 
         const oldSessions = sessionsRef.current;
-        const oldEntry = oldSessions.find(s => s.Filename === filename);
+        const oldEntry = oldSessions.find(s => s.Filename === filename && s.agentId === agentId);
+        const ck = fileCacheKey(agentId, filename);
         const topicId = extractTopicId(filename);
-        const sid = sidMap[filename] || filename;
-        const pk = topicId && sidMap[filename] ? `${sidMap[filename]}:${topicId}` : sid;
+        const info = sidMap[filename];
+        const sid = info?.sessionId || filename;
+        const pk = topicId && info?.sessionId
+          ? `${agentId}:${info.sessionId}:${topicId}`
+          : `${agentId}:${sid}`;
         const oldCount = oldEntry ? (progressRef.current[pk]?.totalMsgs || 0) : 0;
-        const newCount = counts[filename] || 0;
+        const newCount = counts[ck] || 0;
         if (newCount > oldCount && oldEntry) {
           const diff = newCount - oldCount;
           const label = newProg[pk]?.customLabel || oldEntry.Label || shortName(filename);
-          if (filename !== currentFileRef.current) {
+          if (filename !== currentFileRef.current || agentId !== currentAgentIdRef.current) {
             addToast(`+${diff} new message${diff > 1 ? 's' : ''} in ${label}`);
           }
-        } else if (!oldEntry && counts[filename]) {
-          addToast(`New session: ${shortName(filename)}`);
+        } else if (!oldEntry && counts[ck]) {
+          addToast(`New session: ${shortName(filename)} (${agentId})`);
         }
 
         newProg[pk] = newProg[pk] || {};
-        newProg[pk].totalMsgs = counts[filename] || 0;
+        newProg[pk].totalMsgs = counts[ck] || 0;
 
         setSessions(built);
         setProgress(newProg);
         progressRef.current = newProg;
 
-        if (currentFileRef.current === filename) {
-          const row = built.find(r => r.Filename === filename);
-          loadSessionData(filename, row || null, newProg, true);
+        if (currentFileRef.current === filename && currentAgentIdRef.current === agentId) {
+          const row = built.find(r => r.Filename === filename && r.agentId === agentId);
+          loadSessionData(agentId, filename, row || null, newProg, true);
         }
       } catch (e) {
         console.error('SSE refresh error:', e);
@@ -262,22 +287,19 @@ export default function App() {
     return () => sse.close();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function loadSessionData(filename: string, row: SessionRow | null | undefined, prog?: Progress, incremental?: boolean) {
+  async function loadSessionData(agentId: string, filename: string, row: SessionRow | null | undefined, prog?: Progress, incremental?: boolean) {
     if (!incremental) setLoading(true);
-    const pk = row ? progressKey(row) : filename;
+    const pk = row ? progressKey(row) : `${agentId}:${filename}`;
     try {
-      const text = await fetchSession(filename);
+      const text = await fetchSession(agentId, filename);
       const { entries, parseErrors: errors, totalLines: total } = parseJSONL(text);
 
-      // In incremental mode, only update if there are actually new entries
       if (incremental) {
         const prev = currentEntriesRef.current;
         if (entries.length <= prev.length) {
-          // No new entries — just update row/progress without touching entries
           setCurrentRow(row || null);
           return;
         }
-        // Append only the new entries to avoid full re-render
         const newEntries = entries.slice(prev.length);
         setCurrentEntries(prevEntries => [...prevEntries, ...newEntries]);
       } else {
@@ -309,11 +331,12 @@ export default function App() {
     if (!incremental) setLoading(false);
   }
 
-  function handleSelectSession(filename: string) {
+  function handleSelectSession(filename: string, agentId: string) {
     setCurrentFile(filename);
-    const row = sessions.find(r => r.Filename === filename);
+    setCurrentAgentId(agentId);
+    const row = sessions.find(r => r.Filename === filename && r.agentId === agentId);
     setCurrentRow(row || null);
-    loadSessionData(filename, row);
+    loadSessionData(agentId, filename, row);
     setSidebarOpen(false);
     setDangerOnly(false);
     setMsgSearch('');
@@ -321,8 +344,8 @@ export default function App() {
 
   function handleMarkRead(filename: string, messageId: string) {
     if (dangerOnly) return;
-    const row = sessions.find(r => r.Filename === filename);
-    const pk = row ? progressKey(row) : filename;
+    const row = sessions.find(r => r.Filename === filename && r.agentId === currentAgentId);
+    const pk = row ? progressKey(row) : `${currentAgentId}:${filename}`;
     const msgs = currentEntries.filter(e => e.type === 'message');
     const lastMsg = msgs[msgs.length - 1];
     const isLast = !!lastMsg && lastMsg.id === messageId;
@@ -353,8 +376,8 @@ export default function App() {
   }
 
   function handleRename(filename: string, newLabel: string) {
-    const row = sessions.find(r => r.Filename === filename);
-    const pk = row ? progressKey(row) : filename;
+    const row = sessions.find(r => r.Filename === filename && r.agentId === currentAgentId);
+    const pk = row ? progressKey(row) : `${currentAgentId}:${filename}`;
     const newProg: Progress = { ...progressRef.current };
     if (!newProg[pk]) newProg[pk] = {};
     if (newLabel) {
@@ -369,9 +392,13 @@ export default function App() {
     <div className="container">
       <Sidebar
         sessions={sessions}
+        agents={agents}
+        agentFilter={agentFilter}
+        setAgentFilter={setAgentFilter}
         progress={progress}
         dangerData={dangerData}
         currentFile={currentFile}
+        currentAgentId={currentAgentId}
         filters={filters}
         setFilters={setFilters}
         activeSort={activeSort}

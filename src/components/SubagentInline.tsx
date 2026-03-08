@@ -7,6 +7,7 @@ import type { SessionEntry, DangerHit, Progress } from '../types';
 interface SubagentInlineProps {
   childSessionKey: string;
   filename: string;
+  agentId: string;
   label: string;
   task: string;
   progress: Progress;
@@ -17,7 +18,7 @@ interface SubagentInlineProps {
 }
 
 export default function SubagentInline({
-  childSessionKey, filename, label, task,
+  childSessionKey, filename, agentId, label, task,
   progress, dangerData, allExpanded, subagentMap, onMarkRead,
 }: SubagentInlineProps) {
   const [manualToggle, setManualToggle] = useState<boolean | null>(null);
@@ -33,7 +34,7 @@ export default function SubagentInline({
   useEffect(() => {
     if (!expanded || loaded) return;
     setLoading(true);
-    fetchSession(filename).then(text => {
+    fetchSession(agentId, filename).then(text => {
       const parsed: SessionEntry[] = [];
       for (const line of text.split('\n')) {
         if (!line.trim()) continue;
@@ -43,7 +44,7 @@ export default function SubagentInline({
       setLoaded(true);
       setLoading(false);
     }).catch(() => setLoading(false));
-  }, [expanded, loaded, filename]);
+  }, [expanded, loaded, agentId, filename]);
 
   const msgs = useMemo(() => entries.filter(e => e.type === 'message'), [entries]);
   const visibleEntries = useMemo(() => entries.filter(e => e.type !== 'session'), [entries]);
@@ -134,6 +135,7 @@ export default function SubagentInline({
                     <SubagentInline
                       childSessionKey={nested.childSessionKey}
                       filename={nested.info.filename}
+                      agentId={nested.info.agentId}
                       label={nested.info.label}
                       task={nested.task}
                       progress={progress}
