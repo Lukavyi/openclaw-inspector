@@ -359,13 +359,6 @@ export default function MessageViewer({
               />
               {msgSearch && <button className="search-clear" onClick={() => setMsgSearch('')}>✕</button>}
             </div>
-            <button
-              className={`expand-btn ${allExpanded ? 'active' : ''}`}
-              onClick={() => setAllExpanded(!allExpanded)}
-              title="Expand/collapse tool calls, tool results, and thinking blocks"
-            >
-              {allExpanded ? '▼ Collapse tools' : '▶ Expand tools'}
-            </button>
             <div className="msg-toggle">
               <button
                 className={`toggle-opt ${!dangerOnly ? 'active' : ''}`}
@@ -405,6 +398,14 @@ export default function MessageViewer({
                 {label}
               </button>
             ))}
+            <button
+              className={`type-filter-btn ${allExpanded ? 'active' : ''}`}
+              onClick={() => setAllExpanded(!allExpanded)}
+              title="Expand/collapse tool calls, tool results, and thinking blocks"
+              style={{ marginLeft: 4, borderStyle: 'dashed' }}
+            >
+              {allExpanded ? '▼ Expanded' : '▶ Collapsed'}
+            </button>
             {!allFiltersOn && (
               <button
                 className="type-filter-reset"
