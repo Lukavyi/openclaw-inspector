@@ -208,17 +208,10 @@ export default function Sidebar({
       : '';
     const totalMsgs = p?.totalMsgs || '';
     const unreadCount = p?.unreadCount ?? 0;
-    let dateStr = '';
-    let dateFull = '';
-    if (activeSort.startsWith('updated') && row._lastModified) {
-      const dt = new Date(row._lastModified);
-      dateStr = formatDate(dt);
-      dateFull = formatDateFull(dt);
-    } else if (row._createdAt) {
-      const dt = new Date(row._createdAt);
-      dateStr = formatDate(dt);
-      dateFull = formatDateFull(dt);
-    }
+    const createdStr = row._createdAt ? formatDate(new Date(row._createdAt)) : '';
+    const createdFull = row._createdAt ? formatDateFull(new Date(row._createdAt)) : '';
+    const lastMsgStr = row._lastModified ? formatDate(new Date(row._lastModified)) : '';
+    const lastMsgFull = row._lastModified ? formatDateFull(new Date(row._lastModified)) : '';
 
     return (
       <div
@@ -236,7 +229,10 @@ export default function Sidebar({
         </div>
         {label && <div className="label">{label}</div>}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 2 }}>
-          {dateStr && <span style={{ fontSize: 11, color: 'var(--text-muted)' }} title={dateFull}>{dateStr}</span>}
+          <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'flex', gap: 8 }}>
+            {createdStr && <span title={`Created: ${createdFull}`}>⏱ {createdStr}</span>}
+            {lastMsgStr && lastMsgStr !== createdStr && <span title={`Last message: ${lastMsgFull}`}>💬 {lastMsgStr}</span>}
+          </span>
           {unreadCount > 0 && (
             <span style={{ fontSize: 11, background: 'var(--accent)', color: '#fff', padding: '1px 7px', borderRadius: 10, fontWeight: 600 }}>
               +{unreadCount}
@@ -246,7 +242,7 @@ export default function Sidebar({
         {row.Description && <div className="desc">{row.Description}</div>}
       </div>
     );
-  }, [filtered, progress, dangerData, currentFile, activeSort, onSelect]);
+  }, [filtered, progress, dangerData, currentFile, onSelect, sessions]);
 
   return (
     <div className={`sidebar ${isOpen ? 'mobile-open' : ''}`}>
