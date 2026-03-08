@@ -303,12 +303,12 @@ export default function Sidebar({
     <div className={`sidebar ${isOpen ? 'mobile-open' : ''}`}>
       <div className="sidebar-header">
         <h3>🔍 OpenClaw Inspector <span style={{ fontSize: '9px', opacity: 0.5, fontWeight: 400 }}>{typeof __BUILD_TIME__ !== 'undefined' ? __BUILD_TIME__ : ''}</span></h3>
-        <button className="mobile-back" onClick={onClose}>✕</button>
+
       </div>
 
       {/* Agent filter pills */}
       {agents.length > 1 && (
-        <div className="sidebar-agents" style={{ padding: '4px 8px', display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+        <div className="sidebar-agents" style={{ padding: '10px 20px', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           <button
             className={`filter-btn ${agentFilter === '__all__' ? 'active' : ''}`}
             onClick={() => setAgentFilter('__all__')}

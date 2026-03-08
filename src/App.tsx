@@ -523,7 +523,9 @@ export default function App() {
           <div className="empty">🔍 OpenClaw Inspector — select a session</div>
         )}
       </div>
-      <button className="mobile-toggle" onClick={() => setSidebarOpen(!sidebarOpen)}>☰</button>
+      <button className={`mobile-toggle ${sidebarOpen ? 'is-open' : ''}`} onClick={() => setSidebarOpen(!sidebarOpen)}>
+          <span className="hamburger-icon"><span/><span/><span/></span>
+        </button>
       <Toast toasts={toasts} />
     </div>
   );
