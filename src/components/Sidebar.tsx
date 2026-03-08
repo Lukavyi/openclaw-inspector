@@ -194,9 +194,18 @@ export default function Sidebar({
     const p = progress[pk];
     const isSubagent = item.type === 'subagent';
     const isDimmed = !!item.dimmed;
+    const subInfo = isSubagent ? (item as { type: 'subagent'; info: SubagentInfo; row: SessionRow }).info : null;
     const label = isSubagent
-      ? (item as { type: 'subagent'; info: SubagentInfo; row: SessionRow }).info.label || ''
+      ? subInfo?.label || ''
       : p?.customLabel || row.Label || '';
+    const parentLabel = isSubagent && subInfo?.parentFilename
+      ? (() => {
+          const parentRow = sessions.find(r => r.Filename === subInfo.parentFilename);
+          if (!parentRow) return '';
+          const parentPk = progressKey(parentRow);
+          return progress[parentPk]?.customLabel || parentRow.Label || shortName(subInfo.parentFilename);
+        })()
+      : '';
     const totalMsgs = p?.totalMsgs || '';
     const unreadCount = p?.unreadCount ?? 0;
     let dateStr = '';
@@ -216,19 +225,20 @@ export default function Sidebar({
         className={`session-item ${currentFile === fname ? 'selected' : ''} ${isSubagent ? 'subagent-child' : ''} ${isDimmed ? 'dimmed' : ''}`}
         onClick={() => onSelect(fname)}
       >
+        {isSubagent && parentLabel && <div className="subagent-parent-ref">↳ {parentLabel}</div>}
         <div className="name">
           {isSubagent && <span className="subagent-tree-icon">🚀</span>}
           <DangerBadge filename={fname} dangerData={dangerData} />
           <ReadBadge pKey={pk} progress={progress} />
           {!isSubagent && <ReasonBadge row={row} />}
           {shortName(fname)}
-          {totalMsgs ? <span style={{ fontSize: 11, color: '#999', fontWeight: 400 }}>{totalMsgs} msgs</span> : null}
+          {totalMsgs ? <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 400 }}>{totalMsgs} msgs</span> : null}
         </div>
         {label && <div className="label">{label}</div>}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 2 }}>
-          {dateStr && <span style={{ fontSize: 11, color: '#aaa' }} title={dateFull}>{dateStr}</span>}
+          {dateStr && <span style={{ fontSize: 11, color: 'var(--text-muted)' }} title={dateFull}>{dateStr}</span>}
           {unreadCount > 0 && (
-            <span style={{ fontSize: 11, background: '#4f46e5', color: '#fff', padding: '1px 7px', borderRadius: 10, fontWeight: 600 }}>
+            <span style={{ fontSize: 11, background: 'var(--accent)', color: '#fff', padding: '1px 7px', borderRadius: 10, fontWeight: 600 }}>
               +{unreadCount}
             </span>
           )}
@@ -283,12 +293,12 @@ export default function Sidebar({
           </div>
         </div>
         <div className="filter-row" style={{ alignItems: 'center', justifyContent: 'space-between' }}>
-          <label className="danger-checkbox" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, cursor: 'pointer', color: filters.dangerOnly ? '#dc2626' : '#666' }}>
+          <label className="danger-checkbox" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, cursor: 'pointer', color: filters.dangerOnly ? 'var(--danger)' : 'var(--text-secondary)' }}>
             <input
               type="checkbox"
               checked={filters.dangerOnly}
               onChange={() => setFilters({ ...filters, dangerOnly: !filters.dangerOnly })}
-              style={{ accentColor: '#dc2626' }}
+              style={{ accentColor: 'var(--danger)' }}
             />
             ⚠ Dangerous only ({counts.danger})
           </label>

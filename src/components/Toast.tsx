@@ -13,8 +13,8 @@ export default function Toast({ toasts }: ToastProps) {
     }}>
       {toasts.map(t => (
         <div key={t.id} style={{
-          background: '#1a1a1a', color: '#fff', padding: '10px 16px',
-          borderRadius: 8, fontSize: 13, boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+          background: '#2a2520', color: '#faf8f5', padding: '10px 16px',
+          borderRadius: 12, fontSize: 13, boxShadow: '0 4px 16px rgba(26,22,18,.2), 0 2px 4px rgba(26,22,18,.1)',
           animation: 'fadeIn 0.3s ease',
         }}>
           {t.message}

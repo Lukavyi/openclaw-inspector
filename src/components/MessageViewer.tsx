@@ -277,7 +277,7 @@ export default function MessageViewer({
                 onKeyDown={e => { if (e.key === 'Enter') handleSaveRename(); if (e.key === 'Escape') setIsEditing(false); }}
                 onBlur={handleSaveRename}
                 placeholder={shortName(filename)}
-                style={{ fontSize: 15, fontWeight: 600, border: '1px solid #4f46e5', borderRadius: 4, padding: '4px 8px', outline: 'none', width: '100%', fontFamily: 'inherit' }}
+                style={{ fontSize: 15, fontWeight: 600, border: '1.5px solid var(--accent)', borderRadius: 4, padding: '4px 8px', outline: 'none', width: '100%', fontFamily: 'inherit' }}
               />
             ) : <>{displayLabel} <span style={{ fontSize: 14, opacity: 0.4 }}>✏️</span></>}
           </h2>
@@ -323,7 +323,7 @@ export default function MessageViewer({
             <div className="item"><span className="k">Last activity:</span> <span className="v">{row?._lastModified ? new Date(row._lastModified).toLocaleString() : '—'}</span></div>
             <div className="item"><span className="k">Messages:</span> <span className="v">
               {msgs.length} ({userN} user · {asstN} bot · {toolN} tool)
-              {(p?.unreadCount || 0) > 0 && <span style={{ color: '#4f46e5', fontWeight: 700 }}> · {p!.unreadCount} unread</span>}
+              {(p?.unreadCount || 0) > 0 && <span style={{ color: 'var(--accent)', fontWeight: 700 }}> · {p!.unreadCount} unread</span>}
             </span></div>
             <div className="item"><span className="k">Status:</span> <span className="v">{row?.Reason || '—'}</span></div>
             <div className="item"><span className="k">Working directory:</span> <span className="v">{(session as SessionEntry).cwd as string || '—'}</span></div>
@@ -333,7 +333,7 @@ export default function MessageViewer({
       </div>
       <div className="messages" style={{ display: 'block', overflow: 'hidden' }}>
         {loading ? (
-          <div style={{ padding: 40, textAlign: 'center', color: '#999' }}>Loading...</div>
+          <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Loading...</div>
         ) : (
           <Virtuoso
             ref={virtuosoRef}

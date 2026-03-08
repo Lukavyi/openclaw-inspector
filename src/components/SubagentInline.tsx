@@ -113,7 +113,7 @@ export default function SubagentInline({
       </div>
       {expanded && (
         <div className="subagent-body">
-          {loading && <div style={{ padding: 12, color: '#999' }}>Loading...</div>}
+          {loading && <div style={{ padding: 12, color: 'var(--text-muted)' }}>Loading...</div>}
           {!loading && visibleEntries.map((e, i) => {
             if (e.type === 'message') {
               const isRead = !!lastReadId && readEntryIds.has(e.id!);

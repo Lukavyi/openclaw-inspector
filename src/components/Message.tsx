@@ -177,7 +177,7 @@ export default React.memo(function Message({ entry, isRead, dangerOnly, fileDang
           if (total <= 0) return null;
           const fmt = (n: number) => n >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(n);
           return (
-            <div style={{ fontSize: 10, color: '#aaa', marginTop: 6, textAlign: 'right' }}>
+            <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 6, textAlign: 'right' }}>
               {fmt(total)} tokens{u.input ? ` (in:${fmt(u.input)} out:${fmt(u.output || 0)})` : ''}
             </div>
           );
