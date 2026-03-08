@@ -13,6 +13,19 @@ export default function PinnedView({ pins, onNavigate, onRemovePin }: PinnedView
     [pins]
   );
 
+  // Group by session (must be before any early return - Rules of Hooks)
+  const grouped = useMemo(() => {
+    const map = new Map<string, { label: string; pins: Pin[] }>();
+    for (const pin of sorted) {
+      const key = pin.filename;
+      if (!map.has(key)) {
+        map.set(key, { label: pin.sessionLabel || pin.filename.substring(0, 8), pins: [] });
+      }
+      map.get(key)!.pins.push(pin);
+    }
+    return Array.from(map.entries());
+  }, [sorted]);
+
   if (sorted.length === 0) {
     return (
       <div className="pinned-view">
@@ -25,19 +38,6 @@ export default function PinnedView({ pins, onNavigate, onRemovePin }: PinnedView
       </div>
     );
   }
-
-  // Group by session
-  const grouped = useMemo(() => {
-    const map = new Map<string, { label: string; pins: Pin[] }>();
-    for (const pin of sorted) {
-      const key = pin.filename;
-      if (!map.has(key)) {
-        map.set(key, { label: pin.sessionLabel || pin.filename.substring(0, 8), pins: [] });
-      }
-      map.get(key)!.pins.push(pin);
-    }
-    return Array.from(map.entries());
-  }, [sorted]);
 
   return (
     <div className="pinned-view">
