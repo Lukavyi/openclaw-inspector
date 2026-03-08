@@ -44,7 +44,7 @@ export default function MessageViewer({
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState('');
   const [atBottom, setAtBottom] = useState(true);
-  const [showNewBtn, setShowNewBtn] = useState(false);
+
   const [showJumpBtn, setShowJumpBtn] = useState(false);
   const [msgTypeFilters, setMsgTypeFilters] = useState({
     user: true,
@@ -190,7 +190,6 @@ export default function MessageViewer({
     prevEntriesLen.current = 0;
     hasNewMessages.current = false;
     setAtBottom(false);
-    setShowNewBtn(false);
   }, [filename]);
 
   useEffect(() => {
@@ -222,7 +221,6 @@ export default function MessageViewer({
         }, 50);
       } else {
         hasNewMessages.current = true;
-        setShowNewBtn(true);
       }
     }
     prevEntriesLen.current = newLen;
@@ -455,8 +453,7 @@ export default function MessageViewer({
             itemContent={itemContent}
             atBottomStateChange={(bottom) => {
               setAtBottom(bottom);
-              if (bottom) { setShowNewBtn(false); hasNewMessages.current = false; }
-              else if (hasNewMessages.current) { setShowNewBtn(true); }
+              if (bottom) { hasNewMessages.current = false; }
             }}
             rangeChanged={handleRangeChanged}
             overscan={400}
@@ -481,12 +478,20 @@ export default function MessageViewer({
         >🔖 Last reviewed</button>
       )}
       {!atBottom && (
-        <button
-          className="floating-btn new-msg-btn"
-          onClick={() => {
-            virtuosoRef.current?.scrollToIndex({ index: visibleEntries.length - 1, behavior: 'smooth' });
-          }}
-        >↓</button>
+        <>
+          <button
+            className="floating-btn scroll-top-btn"
+            onClick={() => {
+              virtuosoRef.current?.scrollToIndex({ index: 0, behavior: 'smooth' });
+            }}
+          >↑</button>
+          <button
+            className="floating-btn new-msg-btn"
+            onClick={() => {
+              virtuosoRef.current?.scrollToIndex({ index: visibleEntries.length - 1, behavior: 'smooth' });
+            }}
+          >↓</button>
+        </>
       )}
     </>
   );

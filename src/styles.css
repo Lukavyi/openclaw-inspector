@@ -249,8 +249,24 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
   .msg-toggle { width: 100%; display: flex; }
   .toggle-opt { flex: 1; font-size: 11px; padding: 6px 8px; text-align: center; }
   .expand-btn { font-size: 11px; padding: 5px 10px; }
-  .msg-row { max-width: 95%; gap: 4px; }
-  .mark-read-btn, .pin-btn { display: none !important; }
+  .msg-row {
+    max-width: 95%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+  }
+  .msg.user .msg-row { align-items: flex-end; }
+  .msg.assistant .msg-row { align-items: flex-start; }
+  .msg-row .mark-read-btn,
+  .msg-row .pin-btn {
+    opacity: 0.6;
+    pointer-events: auto;
+    font-size: 10px;
+    padding: 3px 8px;
+    align-self: flex-start;
+  }
+  .msg.user .msg-row .mark-read-btn,
+  .msg.user .msg-row .pin-btn { align-self: flex-end; }
   .bubble { max-width: 100% !important; font-size: 13px; }
   .bubble .content pre { font-size: 11px; }
   .session-item { padding: 10px 16px; margin: 0 4px; }
@@ -295,6 +311,18 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
 }
 .floating-btn:active {
   transform: scale(.93);
+}
+.scroll-top-btn {
+  bottom: 60px;
+  right: 20px;
+  background: var(--bg-card);
+  color: var(--text-muted);
+  border: 1.5px solid var(--border);
+  animation: fabBounceIn 500ms var(--ease-out-expo) both;
+}
+.scroll-top-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
 }
 .new-msg-btn {
   bottom: 20px;
