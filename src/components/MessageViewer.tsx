@@ -474,15 +474,9 @@ export default function MessageViewer({
         )}
       </div>
       <div className="floating-nav">
-        {scrolledFromTop && (
-          <button className="nav-btn nav-top" onClick={() => virtuosoRef.current?.scrollToIndex({ index: 0, behavior: 'smooth' })}>↑</button>
-        )}
-        {showJumpBtn && (
-          <button className="nav-btn nav-jump" onClick={jumpToLastRead}>🔖</button>
-        )}
-        {!atBottom && (
-          <button className="nav-btn nav-bottom" onClick={() => virtuosoRef.current?.scrollToIndex({ index: visibleEntries.length - 1, behavior: 'smooth' })}>↓</button>
-        )}
+        <button className={`nav-btn nav-top ${scrolledFromTop ? 'visible' : ''}`} onClick={() => virtuosoRef.current?.scrollToIndex({ index: 0, behavior: 'smooth' })}>↑</button>
+        <button className={`nav-btn nav-jump ${showJumpBtn ? 'visible' : ''}`} onClick={jumpToLastRead}>🔖</button>
+        <button className={`nav-btn nav-bottom ${!atBottom ? 'visible' : ''}`} onClick={() => virtuosoRef.current?.scrollToIndex({ index: visibleEntries.length - 1, behavior: 'smooth' })}>↓</button>
       </div>
     </>
   );
