@@ -96,13 +96,14 @@ interface MessageProps {
   dangerOnly: boolean;
   fileDangers: DangerHit[];
   allExpanded: boolean;
+  hideThinking?: boolean;
   onClick: (entryId: string) => void;
   isPinned?: boolean;
   onPin?: (entryId: string) => void;
   onUnpin?: (entryId: string) => void;
 }
 
-export default React.memo(function Message({ entry, isRead, dangerOnly, fileDangers, allExpanded, onClick, isPinned, onPin, onUnpin }: MessageProps) {
+export default React.memo(function Message({ entry, isRead, dangerOnly, fileDangers, allExpanded, hideThinking, onClick, isPinned, onPin, onUnpin }: MessageProps) {
   const msg = entry.message;
   if (!msg) return null;
 
@@ -152,6 +153,7 @@ export default React.memo(function Message({ entry, isRead, dangerOnly, fileDang
             return <div key={i} className="content">{(block as { type: 'text'; text: string }).text}</div>;
           }
           if (block.type === 'thinking' && 'thinking' in block) {
+            if (hideThinking) return null;
             return <ThinkingBlock key={i} text={(block as { type: 'thinking'; thinking: string }).thinking} allExpanded={allExpanded} />;
           }
           if (block.type === 'toolCall') {

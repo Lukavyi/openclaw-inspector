@@ -278,6 +278,7 @@ export default function MessageViewer({
             dangerOnly={dangerOnly}
             fileDangers={fileDangers}
             allExpanded={allExpanded}
+            hideThinking={!msgTypeFilters.thinking}
             onClick={handleClick}
             isPinned={pinnedMsgIds.has(e.id!)}
             onPin={handlePin}
@@ -329,7 +330,7 @@ export default function MessageViewer({
         ⚠️ Unknown type: <code>{e.type}</code> (line {e._lineNumber || '?'})
       </div>
     );
-  }, [visibleEntries, lastReadId, readEntryIds, lastMsgId, dangerOnly, msgSearch, fileDangers, allExpanded, handleClick, p?.lastReadAt, subagentEntries, progress, dangerData, onSubagentMarkRead, pinnedMsgIds, handlePin, handleUnpin]);
+  }, [visibleEntries, lastReadId, readEntryIds, lastMsgId, dangerOnly, msgSearch, fileDangers, allExpanded, handleClick, p?.lastReadAt, subagentEntries, progress, dangerData, onSubagentMarkRead, pinnedMsgIds, handlePin, handleUnpin, msgTypeFilters.thinking]);
 
   return (
     <>
