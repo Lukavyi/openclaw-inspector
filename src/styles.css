@@ -436,11 +436,11 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
 .session-item.subagent-child {
   margin-left: 20px;
   margin-right: 12px;
-  border-left: 2.5px solid var(--accent);
-  padding: 10px 14px;
-  background: var(--accent-bg);
+  border-left: 2px solid var(--border);
+  padding: 8px 12px;
+  background: transparent;
   font-size: 12px;
-  border-radius: var(--r-sm);
+  border-radius: 0 var(--r-sm) var(--r-sm) 0;
   position: relative;
 }
 .session-item.subagent-child::before {
@@ -450,14 +450,16 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
   top: 50%;
   width: 17px;
   height: 0;
-  border-top: 1.5px dashed rgba(194,112,62,.3);
+  border-top: 1.5px dashed var(--border);
 }
-.session-item.subagent-child:hover { background: rgba(194,112,62,.12); }
-.session-item.subagent-child.selected { background: rgba(194,112,62,.15); border-left-color: var(--accent); box-shadow: var(--shadow-sm); }
-.session-item.subagent-child .name { font-size: 12px; color: var(--text-secondary); }
-.session-item.subagent-child .label { font-size: 12px; color: var(--accent); }
+.session-item.subagent-child:hover { background: var(--bg-warm); border-left-color: var(--text-muted); }
+.session-item.subagent-child.selected { background: var(--bg-card); border-left-color: var(--accent); box-shadow: var(--shadow-sm); }
+.session-item.subagent-child .name { font-size: 12px; color: var(--text-muted); }
+.session-item.subagent-child:hover .name { color: var(--text-secondary); }
+.session-item.subagent-child.selected .name { color: var(--text); }
+.session-item.subagent-child .label { font-size: 11px; color: var(--text-secondary); }
 .subagent-tree-icon { font-size: 13px; margin-right: 4px; filter: saturate(1.2); }
-.subagent-parent-ref { font-size: 10px; color: var(--accent); opacity: 0.7; font-weight: 600; letter-spacing: 0.02em; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.subagent-parent-ref { font-size: 10px; color: var(--text-muted); font-weight: 500; letter-spacing: 0.02em; margin-bottom: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* Dimmed sidebar items */
 .session-item.dimmed { opacity: 0.35; }
