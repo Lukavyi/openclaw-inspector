@@ -66,7 +66,7 @@ try {
 
 function gitCommitProgress(message) {
   try {
-    execSync("git add progress.json danger-rules.json", { cwd: DATA_DIR, stdio: "ignore" });
+    execSync("git add progress.jsonl danger-rules.json", { cwd: DATA_DIR, stdio: "ignore" });
     execSync(`git diff --cached --quiet`, { cwd: DATA_DIR, stdio: "ignore" });
   } catch {
     try {
@@ -581,9 +581,20 @@ const server = createServer((req, res) => {
     return;
   }
 
-  // API: read progress
+  // API: read progress (JSONL storage → JSON object API)
   if (path === "/api/progress" && req.method === "GET") {
-    const progressPath = join(DATA_DIR, "progress.json");
+    const progressPath = join(DATA_DIR, "progress.jsonl");
+    // Migrate old progress.json → progress.jsonl
+    const oldPath = join(DATA_DIR, "progress.json");
+    if (!existsSync(progressPath) && existsSync(oldPath)) {
+      try {
+        const old = JSON.parse(readFileSync(oldPath, "utf-8"));
+        const lines = Object.entries(old)
+          .map(([k, v]) => JSON.stringify({ _key: k, ...v }))
+          .join("\n");
+        writeFileSync(progressPath, lines + "\n", "utf-8");
+      } catch {}
+    }
     if (!existsSync(progressPath)) {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end("{}");
@@ -591,13 +602,24 @@ const server = createServer((req, res) => {
     }
     readFile(progressPath, "utf-8", (err, data) => {
       if (err) { res.writeHead(200, { "Content-Type": "application/json" }); res.end("{}"); return; }
+      const obj = {};
+      for (const line of data.split("\n")) {
+        if (!line.trim()) continue;
+        try {
+          const row = JSON.parse(line);
+          const key = row._key;
+          if (!key) continue;
+          delete row._key;
+          obj[key] = row;
+        } catch {}
+      }
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(data);
+      res.end(JSON.stringify(obj));
     });
     return;
   }
 
-  // API: save progress
+  // API: save progress (JSON object API → JSONL storage)
   if (path === "/api/progress" && req.method === "POST") {
     const MAX_BODY = 2 * 1024 * 1024;
     let body = "";
@@ -609,9 +631,14 @@ const server = createServer((req, res) => {
     req.on("end", () => {
       if (tooBig) { res.writeHead(413); res.end("Payload too large"); return; }
       try {
-        JSON.parse(body);
-        const progressPath = join(DATA_DIR, "progress.json");
-        writeFileSync(progressPath, body, "utf-8");
+        const obj = JSON.parse(body);
+        const progressPath = join(DATA_DIR, "progress.jsonl");
+        // Sort keys for stable git diffs
+        const lines = Object.entries(obj)
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([k, v]) => JSON.stringify({ _key: k, ...v }))
+          .join("\n");
+        writeFileSync(progressPath, lines + "\n", "utf-8");
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end('{"ok":true}');
         const now = new Date().toISOString().replace('T', ' ').slice(0, 19);
