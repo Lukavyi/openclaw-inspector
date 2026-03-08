@@ -1,5 +1,12 @@
 import type { SessionRow, Progress, DangerData, CSVRow } from './types';
 
+export function formatDateFull(d: Date): string {
+  if (!d || isNaN(d.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const time = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()} ${time}`;
+}
+
 export function formatDate(d: Date): string {
   if (!d || isNaN(d.getTime())) return '';
   const now = new Date();

@@ -1,6 +1,6 @@
 import { useMemo, useCallback, useRef, useEffect } from 'react';
 import { Virtuoso, VirtuosoHandle } from 'react-virtuoso';
-import { shortName, formatDate, matchesFilters, sortSessions, progressKey } from '../utils';
+import { shortName, formatDate, formatDateFull, matchesFilters, sortSessions, progressKey } from '../utils';
 import type { SessionRow, Progress, DangerData, Filters } from '../types';
 import type { SubagentInfo } from '../api';
 
@@ -200,10 +200,15 @@ export default function Sidebar({
     const totalMsgs = p?.totalMsgs || '';
     const unreadCount = p?.unreadCount ?? 0;
     let dateStr = '';
+    let dateFull = '';
     if (activeSort.startsWith('updated') && row._lastModified) {
-      dateStr = formatDate(new Date(row._lastModified));
+      const dt = new Date(row._lastModified);
+      dateStr = formatDate(dt);
+      dateFull = formatDateFull(dt);
     } else if (row._createdAt) {
-      dateStr = formatDate(new Date(row._createdAt));
+      const dt = new Date(row._createdAt);
+      dateStr = formatDate(dt);
+      dateFull = formatDateFull(dt);
     }
 
     return (
@@ -221,7 +226,7 @@ export default function Sidebar({
         </div>
         {label && <div className="label">{label}</div>}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 2 }}>
-          {dateStr && <span style={{ fontSize: 11, color: '#aaa' }}>{dateStr}</span>}
+          {dateStr && <span style={{ fontSize: 11, color: '#aaa' }} title={dateFull}>{dateStr}</span>}
           {unreadCount > 0 && (
             <span style={{ fontSize: 11, background: '#4f46e5', color: '#fff', padding: '1px 7px', borderRadius: 10, fontWeight: 600 }}>
               +{unreadCount}
