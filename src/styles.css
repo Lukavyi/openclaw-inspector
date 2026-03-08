@@ -506,6 +506,18 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
 }
 .type-filter-reset:hover { text-decoration: underline; }
 
+/* Pin chat button (in toolbar title) */
+.pin-chat-btn {
+  font-size: 13px;
+  cursor: pointer;
+  opacity: 0.3;
+  transition: opacity 0.15s;
+  margin-left: 4px;
+}
+.pin-chat-btn:hover { opacity: 0.8; }
+.pin-chat-btn.pinned { opacity: 1; }
+.badge.pinned-chat { background: none; padding: 0 2px; font-size: 11px; }
+
 /* Pin button on messages */
 .pin-btn {
   opacity: 0;

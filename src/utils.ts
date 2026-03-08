@@ -143,6 +143,10 @@ export function matchesFilters(row: SessionRow, filters: Filters, progress: Prog
 export function sortSessions(sessions: SessionRow[], sortKey: string, progress: Progress): SessionRow[] {
   const sorted = [...sessions];
   sorted.sort((a, b) => {
+    // Pinned chats always first
+    const aPinned = progress[progressKey(a)]?.pinnedChat ? 1 : 0;
+    const bPinned = progress[progressKey(b)]?.pinnedChat ? 1 : 0;
+    if (aPinned !== bPinned) return bPinned - aPinned;
     if (sortKey.startsWith('created')) {
       const da = a._createdAt ? new Date(a._createdAt).getTime() : 0;
       const db = b._createdAt ? new Date(b._createdAt).getTime() : 0;

@@ -70,6 +70,11 @@ function ReasonBadge({ row }: { row: SessionRow }) {
   return null;
 }
 
+function PinnedChatIcon({ pKey, progress }: { pKey: string; progress: Progress }) {
+  if (!progress[pKey]?.pinnedChat) return null;
+  return <span className="badge pinned-chat" title="Pinned">📌</span>;
+}
+
 function ReadBadge({ pKey, progress }: { pKey: string; progress: Progress }) {
   const p = progress[pKey];
   if (!p || !p.lastReadId) return null;
@@ -270,6 +275,7 @@ export default function Sidebar({
         <div className="name">
           {isSubagent && <span className="subagent-tree-icon">🚀</span>}
           <DangerBadge cacheKey={ck} dangerData={dangerData} />
+          <PinnedChatIcon pKey={pk} progress={progress} />
           <ReadBadge pKey={pk} progress={progress} />
           {!isSubagent && <ReasonBadge row={row} />}
           {showAgentBadge && <AgentBadge agentId={row.agentId} />}

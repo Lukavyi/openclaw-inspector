@@ -392,6 +392,16 @@ export default function App() {
     saveProgress(newProg);
   }
 
+  function handlePinChat(filename: string) {
+    const row = sessions.find(r => r.Filename === filename && r.agentId === currentAgentId);
+    const pk = row ? progressKey(row) : `${currentAgentId}:${filename}`;
+    const newProg: Progress = { ...progressRef.current };
+    if (!newProg[pk]) newProg[pk] = {};
+    newProg[pk].pinnedChat = !newProg[pk].pinnedChat;
+    saveProgress(newProg);
+    addToast(newProg[pk].pinnedChat ? '📌 Chat pinned' : 'Chat unpinned');
+  }
+
   function handleMarkAllRead(filename: string) {
     const msgs = currentEntries.filter(e => e.type === 'message');
     const lastMsg = msgs[msgs.length - 1];
@@ -495,6 +505,7 @@ export default function App() {
             msgSearch={msgSearch}
             setMsgSearch={setMsgSearch}
             onMarkAllRead={handleMarkAllRead}
+            onPinChat={handlePinChat}
             onMarkRead={handleMarkRead}
             onSubagentMarkRead={handleSubagentMarkRead}
             onRename={handleRename}

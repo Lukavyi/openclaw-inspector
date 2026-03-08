@@ -25,6 +25,7 @@ export interface ProgressEntry {
   totalMsgs?: number;
   unreadCount?: number;
   readAll?: boolean;
+  pinnedChat?: boolean;
   customLabel?: string;
   _lastReadIdx?: number;
 }

@@ -21,6 +21,7 @@ interface MessageViewerProps {
   onMarkRead: (filename: string, messageId: string) => void;
   onSubagentMarkRead: (progressKey: string, messageId: string) => void;
   onMarkAllRead: (filename: string) => void;
+  onPinChat: (filename: string) => void;
   onRename: (filename: string, newLabel: string) => void;
   subagentMap: Record<string, SubagentInfo>;
   pins: Pin[];
@@ -36,7 +37,7 @@ interface MessageViewerProps {
 export default function MessageViewer({
   filename, entries, row, progress, dangerData,
   allExpanded, setAllExpanded, dangerOnly, setDangerOnly,
-  msgSearch, setMsgSearch, onMarkAllRead, onMarkRead, onSubagentMarkRead, onRename, subagentMap, pins, onPin, onUnpin, detailsOpen, setDetailsOpen, loading,
+  msgSearch, setMsgSearch, onMarkAllRead, onPinChat, onMarkRead, onSubagentMarkRead, onRename, subagentMap, pins, onPin, onUnpin, detailsOpen, setDetailsOpen, loading,
   parseErrors, totalLines,
 }: MessageViewerProps) {
   const virtuosoRef = useRef<VirtuosoHandle>(null);
@@ -346,7 +347,13 @@ export default function MessageViewer({
                 placeholder={shortName(filename)}
                 style={{ fontSize: 15, fontWeight: 600, border: '1.5px solid var(--accent)', borderRadius: 4, padding: '4px 8px', outline: 'none', width: '100%', fontFamily: 'inherit' }}
               />
-            ) : <>{displayLabel} <span style={{ fontSize: 14, opacity: 0.4 }}>✏️</span></>}
+            ) : <>{displayLabel} <span style={{ fontSize: 14, opacity: 0.4 }}>✏️</span>
+              <span
+                className={`pin-chat-btn ${p?.pinnedChat ? 'pinned' : ''}`}
+                onClick={e => { e.stopPropagation(); onPinChat(filename); }}
+                title={p?.pinnedChat ? 'Unpin chat' : 'Pin chat to top'}
+              >📌</span>
+            </>}
           </h2>
           <div className="toolbar-controls">
             <div className="toolbar-search-wrap">
