@@ -359,7 +359,7 @@ export default function App() {
       lastReadAt: new Date().toISOString(),
       totalMsgs: msgs.length,
       unreadCount: unread,
-      readAll: isLast,
+
     };
     saveProgress(newProg);
   }

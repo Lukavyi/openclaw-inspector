@@ -73,7 +73,7 @@ function ReasonBadge({ row }: { row: SessionRow }) {
 function ReadBadge({ pKey, progress }: { pKey: string; progress: Progress }) {
   const p = progress[pKey];
   if (!p || !p.lastReadId) return null;
-  if (p.readAll) return <span className="badge read-done">✓</span>;
+  if ((p.unreadCount || 0) === 0) return <span className="badge read-done">✓</span>;
   return <span className="badge partial">…</span>;
 }
 
@@ -145,7 +145,7 @@ export default function Sidebar({
       const ck = fileCacheKey(row.agentId, row.Filename);
       c.all++;
       if (!p || !p.lastReadId) c.unread++;
-      else if (p.readAll) c.done++;
+      else if ((p.unreadCount || 0) === 0) c.done++;
       else c.partial++;
       if (reason.startsWith('active')) c.active++;
       if (reason.includes('orphan')) c.orphan++;

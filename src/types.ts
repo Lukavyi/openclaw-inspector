@@ -24,7 +24,7 @@ export interface ProgressEntry {
   lastReadAt?: string;
   totalMsgs?: number;
   unreadCount?: number;
-  readAll?: boolean;
+
   customLabel?: string;
   _lastReadIdx?: number;
 }

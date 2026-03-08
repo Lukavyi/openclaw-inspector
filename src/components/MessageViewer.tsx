@@ -168,13 +168,13 @@ export default function MessageViewer({
   const visibleRange = useRef({ startIndex: 0, endIndex: 0 });
   const handleRangeChanged = useCallback((range: { startIndex: number; endIndex: number }) => {
     visibleRange.current = range;
-    if (lastReadIndex >= 0 && !p?.readAll && lastReadId !== lastMsgId && !dangerOnly && !msgSearch) {
+    if (lastReadIndex >= 0 && (p?.unreadCount || 0) > 0 && lastReadId !== lastMsgId && !dangerOnly && !msgSearch) {
       const isVisible = lastReadIndex >= range.startIndex && lastReadIndex <= range.endIndex;
       setShowJumpBtn(!isVisible);
     } else {
       setShowJumpBtn(false);
     }
-  }, [lastReadIndex, p?.readAll, lastReadId, lastMsgId, dangerOnly, msgSearch]);
+  }, [lastReadIndex, p?.unreadCount, lastReadId, lastMsgId, dangerOnly, msgSearch]);
 
   const handleStartRename = () => {
     setEditValue(customLabel || row?.Label || '');

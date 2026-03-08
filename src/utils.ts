@@ -102,8 +102,8 @@ export function matchesFilter(row: SessionRow, filterKey: string, progress: Prog
   const p = progress[progressKey(row)];
 
   if (filterKey === 'unread') return !p || !p.lastReadId;
-  if (filterKey === 'partial') return !!p && !!p.lastReadId && !p.readAll;
-  if (filterKey === 'done') return !!p && !!p.readAll;
+  if (filterKey === 'partial') return !!p && !!p.lastReadId && (p.unreadCount || 0) > 0;
+  if (filterKey === 'done') return !!p && !!p.lastReadId && (p.unreadCount || 0) === 0;
   if (filterKey === 'active') return reason.startsWith('active');
   if (filterKey === 'orphan') return reason.includes('orphan');
   if (filterKey === 'deleted') return reason.includes('deleted') || (row.Disk || '').toUpperCase() === 'DEL';
@@ -119,8 +119,8 @@ export function matchesFilters(row: SessionRow, filters: Filters, progress: Prog
 
   // Read progress filter
   if (filters.read === 'unread' && p?.lastReadId) return false;
-  if (filters.read === 'partial' && (!p || !p.lastReadId || p.readAll)) return false;
-  if (filters.read === 'done' && (!p || !p.readAll)) return false;
+  if (filters.read === 'partial' && (!p || !p.lastReadId || (p.unreadCount || 0) === 0)) return false;
+  if (filters.read === 'done' && (!p || !p.lastReadId || (p.unreadCount || 0) > 0)) return false;
 
   // Lifecycle filter (empty = show all)
   if (filters.lifecycle.length > 0) {
