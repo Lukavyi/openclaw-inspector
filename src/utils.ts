@@ -15,8 +15,9 @@ export function formatDate(d: Date): string {
   if (diffDays < 7) return `${diffDays}d ago`;
 
   const pad = (n: number) => String(n).padStart(2, '0');
-  if (d.getFullYear() === now.getFullYear()) return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}`;
-  return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()}`;
+  const time = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  if (d.getFullYear() === now.getFullYear()) return `${pad(d.getDate())}.${pad(d.getMonth() + 1)} ${time}`;
+  return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()} ${time}`;
 }
 
 export function extractTopicId(filename: string): string | null {
