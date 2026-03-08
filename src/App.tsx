@@ -89,6 +89,8 @@ export default function App() {
   sessionsRef.current = sessions;
   const currentFileRef = useRef(currentFile);
   currentFileRef.current = currentFile;
+  const currentEntriesRef = useRef(currentEntries);
+  currentEntriesRef.current = currentEntries;
 
   const saveProgress = useCallback((newProgress: Progress) => {
     setProgress(newProgress);
@@ -251,7 +253,7 @@ export default function App() {
 
         if (currentFileRef.current === filename) {
           const row = built.find(r => r.Filename === filename);
-          loadSessionData(filename, row || null, newProg);
+          loadSessionData(filename, row || null, newProg, true);
         }
       } catch (e) {
         console.error('SSE refresh error:', e);
@@ -260,12 +262,28 @@ export default function App() {
     return () => sse.close();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function loadSessionData(filename: string, row: SessionRow | null | undefined, prog?: Progress) {
-    setLoading(true);
+  async function loadSessionData(filename: string, row: SessionRow | null | undefined, prog?: Progress, incremental?: boolean) {
+    if (!incremental) setLoading(true);
     const pk = row ? progressKey(row) : filename;
     try {
       const text = await fetchSession(filename);
       const { entries, parseErrors: errors, totalLines: total } = parseJSONL(text);
+
+      // In incremental mode, only update if there are actually new entries
+      if (incremental) {
+        const prev = currentEntriesRef.current;
+        if (entries.length <= prev.length) {
+          // No new entries — just update row/progress without touching entries
+          setCurrentRow(row || null);
+          return;
+        }
+        // Append only the new entries to avoid full re-render
+        const newEntries = entries.slice(prev.length);
+        setCurrentEntries(prevEntries => [...prevEntries, ...newEntries]);
+      } else {
+        setCurrentEntries(entries);
+      }
+
       setParseErrors(errors);
       setTotalLines(total);
       const msgs = entries.filter(e => e.type === 'message');
@@ -282,14 +300,13 @@ export default function App() {
         newProg[pk].unreadCount = idx === -1 ? msgs.length : msgs.length - idx - 1;
       }
 
-      setCurrentEntries(entries);
       setCurrentRow(row || null);
       setProgress(newProg);
       progressRef.current = newProg;
     } catch {
-      setCurrentEntries([]);
+      if (!incremental) setCurrentEntries([]);
     }
-    setLoading(false);
+    if (!incremental) setLoading(false);
   }
 
   function handleSelectSession(filename: string) {
