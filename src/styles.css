@@ -465,6 +465,47 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
 .session-item.dimmed { opacity: 0.35; }
 .session-item.dimmed:hover { opacity: 0.6; }
 
+/* Message type filters */
+.type-filters {
+  display: flex;
+  gap: 5px;
+  padding: 8px 0 0;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.type-filter-btn {
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: var(--r-xl);
+  border: 1.5px solid var(--border);
+  background: var(--bg-card);
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: all 0.15s;
+  font-weight: 500;
+  font-family: var(--font-body);
+  box-shadow: var(--shadow-sm);
+  opacity: 0.5;
+}
+.type-filter-btn:hover { border-color: var(--accent); color: var(--accent); opacity: 1; }
+.type-filter-btn.active {
+  opacity: 1;
+  color: var(--text-secondary);
+  border-color: var(--border);
+  background: var(--bg-warm);
+}
+.type-filter-reset {
+  font-size: 10px;
+  padding: 3px 8px;
+  border: none;
+  background: none;
+  color: var(--accent);
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-weight: 600;
+}
+.type-filter-reset:hover { text-decoration: underline; }
+
 /* Pin button on messages */
 .pin-btn {
   opacity: 0;

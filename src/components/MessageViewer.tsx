@@ -45,6 +45,14 @@ export default function MessageViewer({
   const [atBottom, setAtBottom] = useState(true);
   const [showNewBtn, setShowNewBtn] = useState(false);
   const [showJumpBtn, setShowJumpBtn] = useState(false);
+  const [msgTypeFilters, setMsgTypeFilters] = useState({
+    user: true,
+    assistant: true,
+    tools: true,
+    thinking: true,
+    subagents: true,
+    system: true,
+  });
   const prevEntriesLen = useRef(0);
   const hasNewMessages = useRef(false);
 
@@ -62,18 +70,54 @@ export default function MessageViewer({
   const fileDangers: DangerHit[] = dangerData[filename] || [];
   const dangerMsgIds = useMemo(() => new Set(fileDangers.map(d => d.msgId)), [fileDangers]);
 
+  // Check if all type filters are ON (no filtering needed)
+  const allFiltersOn = Object.values(msgTypeFilters).every(Boolean);
+
   // Filter visible entries (exclude session type — it's metadata, not renderable)
   const visibleEntries = useMemo(() => {
     const renderable = entries.filter(e => e.type !== 'session');
     if (dangerOnly) {
       return renderable.filter(e => e.type === 'message' && dangerMsgIds.has(e.id!));
     }
+
+    let filtered = renderable;
+
+    // Apply type filters
+    if (!allFiltersOn) {
+      filtered = filtered.filter(e => {
+        if (e.type !== 'message') {
+          // system events: model_change, thinking_level_change, compaction, custom
+          return msgTypeFilters.system;
+        }
+        const role = e.message?.role;
+        if (role === 'user') return msgTypeFilters.user;
+        if (role === 'toolResult') return msgTypeFilters.tools;
+        if (role === 'assistant') {
+          const content = e.message?.content || [];
+          const hasText = content.some(c => c.type === 'text');
+          const hasToolCall = content.some(c => c.type === 'toolCall');
+          const hasThinking = content.some(c => c.type === 'thinking');
+          const isSubagentCall = hasToolCall && content.some(c => c.type === 'toolCall' && (c as { name?: string }).name === 'sessions_spawn');
+
+          // If it's purely a subagent spawn call
+          if (isSubagentCall && !hasText) return msgTypeFilters.subagents;
+          // If it's purely tool calls (no text)
+          if (hasToolCall && !hasText && !hasThinking) return msgTypeFilters.tools;
+          // If it's purely thinking
+          if (hasThinking && !hasText && !hasToolCall) return msgTypeFilters.thinking;
+          // Mixed: show if assistant text is on
+          return msgTypeFilters.assistant;
+        }
+        return true;
+      });
+    }
+
     if (msgSearch) {
       const q = msgSearch.toLowerCase();
-      return renderable.filter(e => JSON.stringify(e).toLowerCase().includes(q));
+      filtered = filtered.filter(e => JSON.stringify(e).toLowerCase().includes(q));
     }
-    return renderable;
-  }, [entries, dangerOnly, dangerMsgIds, msgSearch]);
+    return filtered;
+  }, [entries, dangerOnly, dangerMsgIds, msgSearch, allFiltersOn, msgTypeFilters]);
 
   const lastMsgId = msgs.length > 0 ? msgs[msgs.length - 1].id : null;
 
@@ -343,6 +387,34 @@ export default function MessageViewer({
             )}
           </div>
         </div>
+        {!dangerOnly && (
+          <div className="type-filters">
+            {([
+              ['user', '👤 User'],
+              ['assistant', '🤖 Bot'],
+              ['tools', '🔧 Tools'],
+              ['thinking', '🧠 Think'],
+              ['subagents', '🚀 Sub'],
+              ['system', '⚡ Sys'],
+            ] as const).map(([key, label]) => (
+              <button
+                key={key}
+                className={`type-filter-btn ${msgTypeFilters[key] ? 'active' : ''}`}
+                onClick={() => setMsgTypeFilters(prev => ({ ...prev, [key]: !prev[key] }))}
+              >
+                {label}
+              </button>
+            ))}
+            {!allFiltersOn && (
+              <button
+                className="type-filter-reset"
+                onClick={() => setMsgTypeFilters({ user: true, assistant: true, tools: true, thinking: true, subagents: true, system: true })}
+              >
+                Reset
+              </button>
+            )}
+          </div>
+        )}
         <div className="toolbar-meta">
           <span className="meta-filename">{filename}</span>
           <button className="meta-toggle" onClick={() => setDetailsOpen(!detailsOpen)}>
@@ -398,14 +470,13 @@ export default function MessageViewer({
           title="Jump to last reviewed message"
         >🔖 Last reviewed</button>
       )}
-      {showNewBtn && (
+      {!atBottom && (
         <button
           className="floating-btn new-msg-btn"
           onClick={() => {
             virtuosoRef.current?.scrollToIndex({ index: visibleEntries.length - 1, behavior: 'smooth' });
-            setShowNewBtn(false);
           }}
-        >↓ New messages</button>
+        >↓</button>
       )}
     </>
   );
