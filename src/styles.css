@@ -124,7 +124,7 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
 .msg.read { opacity: 0.4; }
 .msg:hover { opacity: 1 !important; }
 .msg { position: relative; }
-.msg-row { display: inline-flex; align-items: center; gap: 12px; max-width: 70%; overflow: hidden; }
+.msg-row { display: inline-flex; align-items: center; gap: 12px; max-width: 85%; overflow: hidden; }
 .mark-read-btn { opacity: 0; pointer-events: none; flex-shrink: 0; border-radius: var(--r-md); border: 1.5px solid var(--border); background: var(--bg-card); color: var(--accent); font-size: 11px; cursor: pointer; box-shadow: var(--shadow-sm); transition: opacity 0.15s, background 0.15s, color 0.15s; padding: 4px 8px; white-space: nowrap; font-family: inherit; }
 .mark-read-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
 .msg:hover .mark-read-btn { opacity: 1; pointer-events: auto; }
@@ -249,7 +249,9 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
   .msg-toggle { width: 100%; display: flex; }
   .toggle-opt { flex: 1; font-size: 11px; padding: 6px 8px; text-align: center; }
   .expand-btn { font-size: 11px; padding: 5px 10px; }
-  .bubble { max-width: 95% !important; font-size: 13px; }
+  .msg-row { max-width: 95%; gap: 4px; }
+  .mark-read-btn, .pin-btn { display: none !important; }
+  .bubble { max-width: 100% !important; font-size: 13px; }
   .bubble .content pre { font-size: 11px; }
   .session-item { padding: 10px 16px; margin: 0 4px; }
   .stats { font-size: 11px; padding: 6px 16px; }
