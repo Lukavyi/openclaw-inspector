@@ -378,53 +378,51 @@ export default function MessageViewer({
             )}
           </div>
         </div>
-        {!dangerOnly && (
-          <div className="type-filters">
-            {([
-              ['user', '👤 User'],
-              ['assistant', '🤖 Bot'],
-              ['tools', '🔧 Tools'],
-              ['thinking', '🧠 Think'],
-              ['subagents', '🚀 Sub'],
-              ['system', '⚡ Sys'],
-            ] as const).map(([key, label]) => (
-              <button
-                key={key}
-                className={`type-filter-btn ${msgTypeFilters[key] ? 'active' : ''}`}
-                onClick={() => setMsgTypeFilters(prev => ({ ...prev, [key]: !prev[key] }))}
-              >
-                {label}
-              </button>
-            ))}
-            <span style={{ width: 1, height: 18, background: 'var(--border)', flexShrink: 0 }} />
+        <div className="type-filters">
+          {!dangerOnly && ([
+            ['user', '👤 User'],
+            ['assistant', '🤖 Bot'],
+            ['tools', '🔧 Tools'],
+            ['thinking', '🧠 Think'],
+            ['subagents', '🚀 Sub'],
+            ['system', '⚡ Sys'],
+          ] as const).map(([key, label]) => (
             <button
-              className={`type-filter-btn ${dangerOnly ? '' : 'active'}`}
-              onClick={() => setDangerOnly(false)}
-            >All</button>
-            <button
-              className={`type-filter-btn ${dangerOnly ? 'active' : ''}`}
-              onClick={() => setDangerOnly(true)}
-              style={dangerOnly ? { borderColor: 'var(--danger)', color: 'var(--danger)' } : {}}
-            >⚠ Danger</button>
-            <span style={{ width: 1, height: 18, background: 'var(--border)', flexShrink: 0 }} />
-            <button
-              className={`type-filter-btn ${allExpanded ? 'active' : ''}`}
-              onClick={() => setAllExpanded(!allExpanded)}
-              title="Expand/collapse tool calls, tool results, and thinking blocks"
-              style={{ marginLeft: 4, borderStyle: 'dashed' }}
+              key={key}
+              className={`type-filter-btn ${msgTypeFilters[key] ? 'active' : ''}`}
+              onClick={() => setMsgTypeFilters(prev => ({ ...prev, [key]: !prev[key] }))}
             >
-              {allExpanded ? '▼ Expanded' : '▶ Collapsed'}
+              {label}
             </button>
-            {!allFiltersOn && (
-              <button
-                className="type-filter-reset"
-                onClick={() => setMsgTypeFilters({ user: true, assistant: true, tools: true, thinking: true, subagents: true, system: true })}
-              >
-                Reset
-              </button>
-            )}
-          </div>
-        )}
+          ))}
+          {!dangerOnly && <span style={{ width: 1, height: 18, background: 'var(--border)', flexShrink: 0 }} />}
+          <button
+            className={`type-filter-btn ${dangerOnly ? '' : 'active'}`}
+            onClick={() => setDangerOnly(false)}
+          >All</button>
+          <button
+            className={`type-filter-btn ${dangerOnly ? 'active' : ''}`}
+            onClick={() => setDangerOnly(true)}
+            style={dangerOnly ? { borderColor: 'var(--danger)', color: 'var(--danger)' } : {}}
+          >⚠ Danger</button>
+          <span style={{ width: 1, height: 18, background: 'var(--border)', flexShrink: 0 }} />
+          <button
+            className={`type-filter-btn ${allExpanded ? 'active' : ''}`}
+            onClick={() => setAllExpanded(!allExpanded)}
+            title="Expand/collapse tool calls, tool results, and thinking blocks"
+            style={{ marginLeft: 4, borderStyle: 'dashed' }}
+          >
+            {allExpanded ? '▼ Expanded' : '▶ Collapsed'}
+          </button>
+          {!dangerOnly && !allFiltersOn && (
+            <button
+              className="type-filter-reset"
+              onClick={() => setMsgTypeFilters({ user: true, assistant: true, tools: true, thinking: true, subagents: true, system: true })}
+            >
+              Reset
+            </button>
+          )}
+        </div>
         <div className="toolbar-meta">
           <span className="meta-filename">{filename}</span>
           <button className="meta-toggle" onClick={() => setDetailsOpen(!detailsOpen)}>
