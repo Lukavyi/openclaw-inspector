@@ -302,7 +302,7 @@ export default function Sidebar({
   return (
     <div className={`sidebar ${isOpen ? 'mobile-open' : ''}`}>
       <div className="sidebar-header">
-        <h3>🔍 OpenClaw Inspector</h3>
+        <h3>🔍 OpenClaw Inspector <span style={{ fontSize: '9px', opacity: 0.5, fontWeight: 400 }}>{typeof __BUILD_TIME__ !== 'undefined' ? __BUILD_TIME__ : ''}</span></h3>
         <button className="mobile-back" onClick={onClose}>✕</button>
       </div>
 

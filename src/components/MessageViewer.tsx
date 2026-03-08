@@ -44,7 +44,7 @@ export default function MessageViewer({
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState('');
   const [atBottom, setAtBottom] = useState(true);
-  const [atTop, setAtTop] = useState(false);
+  const [scrolledFromTop, setScrolledFromTop] = useState(false);
 
   const [showJumpBtn, setShowJumpBtn] = useState(false);
   const [msgTypeFilters, setMsgTypeFilters] = useState({
@@ -231,6 +231,7 @@ export default function MessageViewer({
   const visibleRange = useRef({ startIndex: 0, endIndex: 0 });
   const handleRangeChanged = useCallback((range: { startIndex: number; endIndex: number }) => {
     visibleRange.current = range;
+    setScrolledFromTop(range.startIndex > 0);
     if (lastReadIndex >= 0 && (p?.unreadCount || 0) > 0 && lastReadId !== lastMsgId && !dangerOnly && !msgSearch) {
       const isVisible = lastReadIndex >= range.startIndex && lastReadIndex <= range.endIndex;
       setShowJumpBtn(!isVisible);
@@ -456,7 +457,7 @@ export default function MessageViewer({
               setAtBottom(bottom);
               if (bottom) { hasNewMessages.current = false; }
             }}
-            atTopStateChange={setAtTop}
+
             rangeChanged={handleRangeChanged}
             overscan={400}
             style={{ height: '100%' }}
@@ -472,29 +473,17 @@ export default function MessageViewer({
           </div>
         )}
       </div>
-      {showJumpBtn && (
-        <button
-          className="floating-btn jump-btn"
-          onClick={jumpToLastRead}
-          title="Jump to last reviewed message"
-        >🔖 Last reviewed</button>
-      )}
-      {!atTop && (
-        <button
-          className="floating-btn scroll-top-btn"
-          onClick={() => {
-            virtuosoRef.current?.scrollToIndex({ index: 0, behavior: 'smooth' });
-          }}
-        >↑</button>
-      )}
-      {!atBottom && (
-        <button
-          className="floating-btn new-msg-btn"
-          onClick={() => {
-            virtuosoRef.current?.scrollToIndex({ index: visibleEntries.length - 1, behavior: 'smooth' });
-          }}
-        >↓</button>
-      )}
+      <div className="floating-nav">
+        {scrolledFromTop && (
+          <button className="nav-btn nav-top" onClick={() => virtuosoRef.current?.scrollToIndex({ index: 0, behavior: 'smooth' })}>↑</button>
+        )}
+        {showJumpBtn && (
+          <button className="nav-btn nav-jump" onClick={jumpToLastRead}>🔖</button>
+        )}
+        {!atBottom && (
+          <button className="nav-btn nav-bottom" onClick={() => virtuosoRef.current?.scrollToIndex({ index: visibleEntries.length - 1, behavior: 'smooth' })}>↓</button>
+        )}
+      </div>
     </>
   );
 }
