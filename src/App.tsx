@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { fetchSessions, fetchCounts, fetchCSV, fetchDanger, fetchProgress, saveProgress as saveProgressApi, fetchSession, connectSSE, searchSessions, fetchSubagents, fetchAgents } from './api';
+import { fetchSessions, fetchCounts, fetchCSV, fetchDanger, fetchProgress, saveProgress as saveProgressApi, fetchSession, connectSSE, searchSessions, fetchSubagents, fetchAgents, fetchPins, addPin as addPinApi, removePin as removePinApi } from './api';
 import type { SubagentInfo, SearchMatch } from './api';
 import { parseCSV, shortName, progressKey, extractTopicId, fileCacheKey } from './utils';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import Sidebar from './components/Sidebar';
+import PinnedView from './components/PinnedView';
 import MessageViewer from './components/MessageViewer';
 import Toast from './components/Toast';
-import type { SessionRow, Progress, DangerData, SessionEntry, ParseError, Toast as ToastType, Filters } from './types';
+import type { SessionRow, Progress, DangerData, SessionEntry, ParseError, Toast as ToastType, Filters, Pin } from './types';
 
 const DEFAULT_FILTERS: Filters = { read: 'all', lifecycle: [], dangerOnly: false };
 
@@ -70,6 +71,8 @@ export default function App() {
   const [totalLines, setTotalLines] = useState(0);
   const [contentMatches, setContentMatches] = useState<Set<string> | null>(null);
   const [subagentMap, setSubagentMap] = useState<Record<string, SubagentInfo>>({});
+  const [pins, setPins] = useState<Pin[]>([]);
+  const [showPinned, setShowPinned] = useState(false);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Debounced content search
@@ -115,11 +118,12 @@ export default function App() {
   // Load initial data
   useEffect(() => {
     (async () => {
-      const [agentList, sessData, counts, csvText, danger, prog, subs] = await Promise.all([
-        fetchAgents(), fetchSessions(), fetchCounts(), fetchCSV(), fetchDanger(), fetchProgress(), fetchSubagents()
+      const [agentList, sessData, counts, csvText, danger, prog, subs, pinsData] = await Promise.all([
+        fetchAgents(), fetchSessions(), fetchCounts(), fetchCSV(), fetchDanger(), fetchProgress(), fetchSubagents(), fetchPins()
       ]);
       setAgents(agentList);
       setSubagentMap(subs);
+      setPins(pinsData);
 
       const csvRows = csvText ? parseCSV(csvText) : [];
       const csvMap: Record<string, Record<string, string | undefined>> = {};
@@ -388,6 +392,62 @@ export default function App() {
     saveProgress(newProg);
   }
 
+  function handleMarkAllRead(filename: string) {
+    const msgs = currentEntries.filter(e => e.type === 'message');
+    const lastMsg = msgs[msgs.length - 1];
+    if (!lastMsg?.id) return;
+    handleMarkRead(filename, lastMsg.id);
+    addToast('Marked all as read');
+  }
+
+  async function handlePinMessage(filename: string, entry: SessionEntry) {
+    if (!entry.id || !entry.message) return;
+    const row = sessions.find(r => r.Filename === filename && r.agentId === currentAgentId);
+    const preview = (entry.message.content || [])
+      .filter(c => c.type === 'text')
+      .map(c => (c as { text: string }).text)
+      .join('\n')
+      .substring(0, 300);
+    const pin = await addPinApi({
+      agentId: currentAgentId || 'main',
+      filename,
+      msgId: entry.id,
+      preview,
+      role: entry.message.role || 'unknown',
+      timestamp: entry.timestamp,
+      sessionLabel: row ? (progressRef.current[progressKey(row)]?.customLabel || row.Label || shortName(filename)) : shortName(filename),
+    });
+    if (pin) {
+      setPins(prev => [...prev, pin]);
+      addToast('📌 Pinned');
+    }
+  }
+
+  async function handleUnpinMessage(pinId: string) {
+    await removePinApi(pinId);
+    setPins(prev => prev.filter(p => p.id !== pinId));
+    addToast('Unpinned');
+  }
+
+  function handleNavigateToPin(filename: string, msgId: string) {
+    // Find the pin to get agentId
+    const pin = pins.find(p => p.filename === filename && p.msgId === msgId);
+    const agentId = pin?.agentId || currentAgentId || 'main';
+    setShowPinned(false);
+    if (agentId !== currentAgentId) {
+      setAgentFilter(agentId);
+    }
+    setCurrentFile(filename);
+    setCurrentAgentId(agentId);
+    const row = sessions.find(r => r.Filename === filename && r.agentId === agentId);
+    setCurrentRow(row || null);
+    loadSessionData(agentId, filename, row).then(() => {
+      setTimeout(() => {
+        handleMarkRead(filename, msgId);
+      }, 200);
+    });
+  }
+
   return (
     <div className="container">
       <Sidebar
@@ -407,12 +467,21 @@ export default function App() {
         setSearchQuery={setSidebarSearch}
         contentMatches={contentMatches}
         subagentMap={subagentMap}
-        onSelect={handleSelectSession}
+        onSelect={(f, a) => { setShowPinned(false); handleSelectSession(f, a); }}
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
+        pinCount={pins.length}
+        showPinned={showPinned}
+        onTogglePinned={() => setShowPinned(!showPinned)}
       />
       <div className="main">
-        {currentFile ? (
+        {showPinned ? (
+          <PinnedView
+            pins={pins}
+            onNavigate={handleNavigateToPin}
+            onRemovePin={handleUnpinMessage}
+          />
+        ) : currentFile ? (
           <MessageViewer
             filename={currentFile}
             entries={currentEntries}
@@ -425,10 +494,14 @@ export default function App() {
             setDangerOnly={setDangerOnly}
             msgSearch={msgSearch}
             setMsgSearch={setMsgSearch}
+            onMarkAllRead={handleMarkAllRead}
             onMarkRead={handleMarkRead}
             onSubagentMarkRead={handleSubagentMarkRead}
             onRename={handleRename}
             subagentMap={subagentMap}
+            pins={pins}
+            onPin={handlePinMessage}
+            onUnpin={handleUnpinMessage}
             detailsOpen={detailsOpen}
             setDetailsOpen={setDetailsOpen}
             loading={loading}

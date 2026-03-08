@@ -97,9 +97,12 @@ interface MessageProps {
   fileDangers: DangerHit[];
   allExpanded: boolean;
   onClick: (entryId: string) => void;
+  isPinned?: boolean;
+  onPin?: (entryId: string) => void;
+  onUnpin?: (entryId: string) => void;
 }
 
-export default React.memo(function Message({ entry, isRead, dangerOnly, fileDangers, allExpanded, onClick }: MessageProps) {
+export default React.memo(function Message({ entry, isRead, dangerOnly, fileDangers, allExpanded, onClick, isPinned, onPin, onUnpin }: MessageProps) {
   const msg = entry.message;
   if (!msg) return null;
 
@@ -128,7 +131,16 @@ export default React.memo(function Message({ entry, isRead, dangerOnly, fileDang
     <div className={`msg ${role}${isRead ? ' read' : ''}`}>
       <div className="msg-row">
       {!dangerOnly && role === 'user' && (
-        <button className="mark-read-btn" onClick={handleClick}>Checked to here</button>
+        <>
+          <button className="mark-read-btn" onClick={handleClick}>Checked to here</button>
+          {(onPin || onUnpin) && entry.id && (
+            <button
+              className={`pin-btn ${isPinned ? 'pinned' : ''}`}
+              onClick={e => { e.stopPropagation(); isPinned && onUnpin ? onUnpin(entry.id!) : onPin?.(entry.id!); }}
+              title={isPinned ? 'Unpin' : 'Pin'}
+            >📌</button>
+          )}
+        </>
       )}
       <div className={bubbleClass}>
         {time && <div className="time">{time}</div>}
@@ -184,7 +196,16 @@ export default React.memo(function Message({ entry, isRead, dangerOnly, fileDang
         })()}
       </div>
       {!dangerOnly && role !== 'user' && (
-        <button className="mark-read-btn" onClick={handleClick}>Checked to here</button>
+        <>
+          {(onPin || onUnpin) && entry.id && (
+            <button
+              className={`pin-btn ${isPinned ? 'pinned' : ''}`}
+              onClick={e => { e.stopPropagation(); isPinned && onUnpin ? onUnpin(entry.id!) : onPin?.(entry.id!); }}
+              title={isPinned ? 'Unpin' : 'Pin'}
+            >📌</button>
+          )}
+          <button className="mark-read-btn" onClick={handleClick}>Checked to here</button>
+        </>
       )}
       </div>
     </div>

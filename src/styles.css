@@ -278,8 +278,8 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
   position: absolute;
   z-index: 10;
   border: none;
-  border-radius: 50%;
-  padding: 10px 20px;
+  border-radius: 999px;
+  padding: 8px 18px;
   font-size: 13px;
   cursor: pointer;
   box-shadow: var(--shadow-lg);
@@ -464,3 +464,65 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
 /* Dimmed sidebar items */
 .session-item.dimmed { opacity: 0.35; }
 .session-item.dimmed:hover { opacity: 0.6; }
+
+/* Pin button on messages */
+.pin-btn {
+  opacity: 0;
+  pointer-events: none;
+  flex-shrink: 0;
+  background: var(--bg-card);
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 4px 8px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: opacity 0.15s, background 0.15s, border-color 0.15s;
+  box-shadow: var(--shadow-sm);
+  white-space: nowrap;
+  font-family: inherit;
+}
+.msg:hover .pin-btn { opacity: 1; pointer-events: auto; }
+.pin-btn:hover { border-color: var(--accent); background: var(--accent-bg); }
+.pin-btn.pinned { opacity: 0.8; background: var(--accent-bg); border-color: var(--accent); pointer-events: auto; }
+.msg:hover .pin-btn.pinned { opacity: 1; }
+
+/* Pinned View */
+.pinned-view { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.pinned-header { padding: 18px 28px; background: var(--bg-card); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; box-shadow: var(--shadow-sm); }
+.pinned-header h2 { font-size: 16px; font-weight: 600; margin: 0; }
+.pinned-count { font-size: 12px; color: var(--text-muted); }
+.pinned-empty { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 14px; padding: 40px; }
+.pinned-list { flex: 1; overflow-y: auto; padding: 16px 28px; }
+.pinned-group { margin-bottom: 20px; }
+.pinned-group-label { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; padding-left: 4px; }
+.pinned-item {
+  padding: 14px 16px;
+  background: var(--bg-card);
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-md);
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: var(--shadow-sm);
+  position: relative;
+}
+.pinned-item:hover { border-color: var(--accent); box-shadow: var(--shadow-md); transform: translateY(-1px); }
+.pinned-item-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.pinned-role { font-size: 11px; font-weight: 600; color: var(--text-muted); }
+.pinned-time { font-size: 11px; color: var(--text-muted); font-family: var(--font-mono); }
+.pinned-remove {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  opacity: 0;
+  transition: all 0.15s;
+}
+.pinned-item:hover .pinned-remove { opacity: 1; }
+.pinned-remove:hover { color: var(--danger); background: var(--danger-bg); }
+.pinned-preview { font-size: 13px; color: var(--text); line-height: 1.6; white-space: pre-wrap; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; }
+.pinned-note { font-size: 12px; color: var(--text-secondary); margin-top: 6px; font-style: italic; }

@@ -107,12 +107,16 @@ interface SidebarProps {
   onSelect: (filename: string, agentId: string) => void;
   isOpen: boolean;
   onClose: () => void;
+  pinCount: number;
+  showPinned: boolean;
+  onTogglePinned: () => void;
 }
 
 export default function Sidebar({
   sessions, agents, agentFilter, setAgentFilter, progress, dangerData, currentFile, currentAgentId,
   filters, setFilters, activeSort, setActiveSort,
-  searchQuery, setSearchQuery, contentMatches, subagentMap, onSelect, isOpen, onClose
+  searchQuery, setSearchQuery, contentMatches, subagentMap, onSelect, isOpen, onClose,
+  pinCount, showPinned, onTogglePinned
 }: SidebarProps) {
   // Filter sessions by agent
   const agentSessions = useMemo(() => {
@@ -293,7 +297,16 @@ export default function Sidebar({
     <div className={`sidebar ${isOpen ? 'mobile-open' : ''}`}>
       <div className="sidebar-header">
         <h3>🔍 OpenClaw Inspector</h3>
-        <button className="mobile-back" onClick={onClose}>✕</button>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <button
+            className={`filter-btn ${showPinned ? 'active' : ''}`}
+            onClick={onTogglePinned}
+            style={{ fontSize: 12, padding: '4px 10px' }}
+          >
+            📌 {pinCount > 0 ? pinCount : ''}
+          </button>
+          <button className="mobile-back" onClick={onClose}>✕</button>
+        </div>
       </div>
 
       {/* Agent filter pills */}

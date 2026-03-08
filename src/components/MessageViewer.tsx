@@ -3,7 +3,7 @@ import { Virtuoso, VirtuosoHandle } from 'react-virtuoso';
 import { shortName, progressKey } from '../utils';
 import Message from './Message';
 import SubagentInline from './SubagentInline';
-import type { SessionEntry, SessionRow, Progress, DangerData, DangerHit, ParseError } from '../types';
+import type { SessionEntry, SessionRow, Progress, DangerData, DangerHit, ParseError, Pin } from '../types';
 import type { SubagentInfo } from '../api';
 
 interface MessageViewerProps {
@@ -20,8 +20,12 @@ interface MessageViewerProps {
   setMsgSearch: (v: string) => void;
   onMarkRead: (filename: string, messageId: string) => void;
   onSubagentMarkRead: (progressKey: string, messageId: string) => void;
+  onMarkAllRead: (filename: string) => void;
   onRename: (filename: string, newLabel: string) => void;
   subagentMap: Record<string, SubagentInfo>;
+  pins: Pin[];
+  onPin: (filename: string, entry: SessionEntry) => void;
+  onUnpin: (msgId: string) => void;
   detailsOpen: boolean;
   setDetailsOpen: (v: boolean) => void;
   loading: boolean;
@@ -32,7 +36,7 @@ interface MessageViewerProps {
 export default function MessageViewer({
   filename, entries, row, progress, dangerData,
   allExpanded, setAllExpanded, dangerOnly, setDangerOnly,
-  msgSearch, setMsgSearch, onMarkRead, onSubagentMarkRead, onRename, subagentMap, detailsOpen, setDetailsOpen, loading,
+  msgSearch, setMsgSearch, onMarkAllRead, onMarkRead, onSubagentMarkRead, onRename, subagentMap, pins, onPin, onUnpin, detailsOpen, setDetailsOpen, loading,
   parseErrors, totalLines,
 }: MessageViewerProps) {
   const virtuosoRef = useRef<VirtuosoHandle>(null);
@@ -72,6 +76,21 @@ export default function MessageViewer({
   }, [entries, dangerOnly, dangerMsgIds, msgSearch]);
 
   const lastMsgId = msgs.length > 0 ? msgs[msgs.length - 1].id : null;
+
+  // Pinned message ids for this file
+  const pinnedMsgIds = useMemo(() => new Set(
+    pins.filter(p => p.filename === filename).map(p => p.msgId)
+  ), [pins, filename]);
+
+  const handlePin = useCallback((entryId: string) => {
+    const entry = entries.find(e => e.id === entryId);
+    if (entry) onPin(filename, entry);
+  }, [entries, filename, onPin]);
+
+  const handleUnpin = useCallback((entryId: string) => {
+    const pin = pins.find(p => p.filename === filename && p.msgId === entryId);
+    if (pin) onUnpin(pin.id);
+  }, [pins, filename, onUnpin]);
 
   // Build map: msgId (of toolResult for sessions_spawn) → subagent info
   const subagentEntries = useMemo(() => {
@@ -215,6 +234,9 @@ export default function MessageViewer({
             fileDangers={fileDangers}
             allExpanded={allExpanded}
             onClick={handleClick}
+            isPinned={pinnedMsgIds.has(e.id!)}
+            onPin={handlePin}
+            onUnpin={handleUnpin}
           />
           {sub && (
             <SubagentInline
@@ -262,7 +284,7 @@ export default function MessageViewer({
         ⚠️ Unknown type: <code>{e.type}</code> (line {e._lineNumber || '?'})
       </div>
     );
-  }, [visibleEntries, lastReadId, readEntryIds, lastMsgId, dangerOnly, msgSearch, fileDangers, allExpanded, handleClick, p?.lastReadAt, subagentEntries, progress, dangerData, onSubagentMarkRead]);
+  }, [visibleEntries, lastReadId, readEntryIds, lastMsgId, dangerOnly, msgSearch, fileDangers, allExpanded, handleClick, p?.lastReadAt, subagentEntries, progress, dangerData, onSubagentMarkRead, pinnedMsgIds, handlePin, handleUnpin]);
 
   return (
     <>
@@ -310,6 +332,15 @@ export default function MessageViewer({
                 onClick={() => setDangerOnly(true)}
               >⚠ Danger</button>
             </div>
+            {!p?.readAll && (
+              <button
+                className="expand-btn"
+                onClick={() => onMarkAllRead(filename)}
+                title="Mark entire conversation as read"
+              >
+                ✓ Mark all read
+              </button>
+            )}
           </div>
         </div>
         <div className="toolbar-meta">

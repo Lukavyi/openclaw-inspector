@@ -24,9 +24,22 @@ export interface ProgressEntry {
   lastReadAt?: string;
   totalMsgs?: number;
   unreadCount?: number;
-
+  readAll?: boolean;
   customLabel?: string;
   _lastReadIdx?: number;
+}
+
+export interface Pin {
+  id: string;
+  agentId: string;
+  filename: string;
+  msgId: string;
+  pinnedAt: string;
+  note?: string;
+  preview: string;
+  role: string;
+  timestamp?: string;
+  sessionLabel?: string;
 }
 
 export type Progress = Record<string, ProgressEntry>;

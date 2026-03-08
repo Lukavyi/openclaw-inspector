@@ -1,4 +1,4 @@
-import type { SessionApiResponse, DangerData, Progress } from './types';
+import type { SessionApiResponse, DangerData, Progress, Pin } from './types';
 
 const BASE = '';
 
@@ -69,6 +69,24 @@ export interface SubagentInfo {
 export async function fetchSubagents(): Promise<Record<string, SubagentInfo>> {
   const res = await fetch(`${BASE}/api/subagents`);
   return res.ok ? res.json() : {};
+}
+
+export async function fetchPins(): Promise<Pin[]> {
+  const res = await fetch(`${BASE}/api/pins`);
+  return res.ok ? res.json() : [];
+}
+
+export async function addPin(pin: Omit<Pin, 'id' | 'pinnedAt'>): Promise<Pin | null> {
+  const res = await fetch(`${BASE}/api/pins`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(pin),
+  });
+  return res.ok ? res.json() : null;
+}
+
+export async function removePin(pinId: string): Promise<void> {
+  await fetch(`${BASE}/api/pins/${encodeURIComponent(pinId)}`, { method: 'DELETE' });
 }
 
 export function connectSSE(onFileChange: (data: { filename: string; agentId: string }) => void): EventSource {

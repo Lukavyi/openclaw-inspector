@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Session Viewer Server — serves UI + watches JSONL files via SSE
 // Multi-agent: discovers all agent dirs under ~/.openclaw/agents/*/sessions/ and ~/.clawdbot/agents/*/sessions/
+import crypto from "node:crypto";
 import { createServer } from "node:http";
 import {
   readFileSync, writeFileSync, readdirSync, statSync, watch, existsSync,
@@ -64,15 +65,32 @@ try {
   console.error(`⚠️  Could not init git in ${DATA_DIR}: ${e.message}`);
 }
 
-function gitCommitProgress(message) {
+function gitCommitData(message) {
   try {
-    execSync("git add progress.jsonl danger-rules.json", { cwd: DATA_DIR, stdio: "ignore" });
+    execSync("git add -A", { cwd: DATA_DIR, stdio: "ignore" });
     execSync(`git diff --cached --quiet`, { cwd: DATA_DIR, stdio: "ignore" });
   } catch {
     try {
       execSync(`git commit -m ${JSON.stringify(message)}`, { cwd: DATA_DIR, stdio: "ignore" });
     } catch {}
   }
+}
+const gitCommitProgress = gitCommitData;
+
+// Pins storage (JSONL - one pin per line)
+const PINS_PATH = join(DATA_DIR, "pins.jsonl");
+function loadPins() {
+  if (!existsSync(PINS_PATH)) return [];
+  try {
+    return readFileSync(PINS_PATH, "utf-8")
+      .split("\n")
+      .filter(l => l.trim())
+      .map(l => JSON.parse(l));
+  } catch { return []; }
+}
+function savePins(pins) {
+  writeFileSync(PINS_PATH, pins.map(p => JSON.stringify(p)).join("\n") + (pins.length ? "\n" : ""), "utf-8");
+  gitCommitData("pins: update");
 }
 
 const defaultRulesPath = join(PROJECT_DIR, "danger-rules.json");
@@ -648,6 +666,50 @@ const server = createServer((req, res) => {
         res.end("Invalid JSON");
       }
     });
+    return;
+  }
+
+  // API: pins
+  if (path === "/api/pins" && req.method === "GET") {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(loadPins()));
+    return;
+  }
+  if (path === "/api/pins" && req.method === "POST") {
+    let body = "";
+    req.on("data", (chunk) => { body += chunk; });
+    req.on("end", () => {
+      try {
+        const data = JSON.parse(body);
+        const pin = {
+          id: crypto.randomUUID(),
+          agentId: data.agentId || "",
+          filename: data.filename || "",
+          msgId: data.msgId || "",
+          pinnedAt: new Date().toISOString(),
+          note: data.note || "",
+          preview: (data.preview || "").substring(0, 500),
+          role: data.role || "",
+          timestamp: data.timestamp || "",
+          sessionLabel: data.sessionLabel || "",
+        };
+        const pins = loadPins();
+        pins.push(pin);
+        savePins(pins);
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(pin));
+      } catch {
+        res.writeHead(400); res.end("Invalid JSON");
+      }
+    });
+    return;
+  }
+  if (path.startsWith("/api/pins/") && req.method === "DELETE") {
+    const pinId = decodeURIComponent(path.slice("/api/pins/".length));
+    const pins = loadPins().filter(p => p.id !== pinId);
+    savePins(pins);
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end('{"ok":true}');
     return;
   }
 
