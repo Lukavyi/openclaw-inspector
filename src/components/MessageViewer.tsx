@@ -366,16 +366,7 @@ export default function MessageViewer({
               />
               {msgSearch && <button className="search-clear" onClick={() => setMsgSearch('')}>✕</button>}
             </div>
-            <div className="msg-toggle">
-              <button
-                className={`toggle-opt ${!dangerOnly ? 'active' : ''}`}
-                onClick={() => setDangerOnly(false)}
-              >All</button>
-              <button
-                className={`toggle-opt ${dangerOnly ? 'active' : ''}`}
-                onClick={() => setDangerOnly(true)}
-              >⚠ Danger</button>
-            </div>
+
             {!p?.readAll && (
               <button
                 className="expand-btn"
@@ -405,6 +396,17 @@ export default function MessageViewer({
                 {label}
               </button>
             ))}
+            <span style={{ width: 1, height: 18, background: 'var(--border)', flexShrink: 0 }} />
+            <button
+              className={`type-filter-btn ${dangerOnly ? '' : 'active'}`}
+              onClick={() => setDangerOnly(false)}
+            >All</button>
+            <button
+              className={`type-filter-btn ${dangerOnly ? 'active' : ''}`}
+              onClick={() => setDangerOnly(true)}
+              style={dangerOnly ? { borderColor: 'var(--danger)', color: 'var(--danger)' } : {}}
+            >⚠ Danger</button>
+            <span style={{ width: 1, height: 18, background: 'var(--border)', flexShrink: 0 }} />
             <button
               className={`type-filter-btn ${allExpanded ? 'active' : ''}`}
               onClick={() => setAllExpanded(!allExpanded)}
