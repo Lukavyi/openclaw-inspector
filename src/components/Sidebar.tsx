@@ -297,16 +297,7 @@ export default function Sidebar({
     <div className={`sidebar ${isOpen ? 'mobile-open' : ''}`}>
       <div className="sidebar-header">
         <h3>🔍 OpenClaw Inspector</h3>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <button
-            className={`filter-btn ${showPinned ? 'active' : ''}`}
-            onClick={onTogglePinned}
-            style={{ fontSize: 12, padding: '4px 10px' }}
-          >
-            📌 {pinCount > 0 ? pinCount : ''}
-          </button>
-          <button className="mobile-back" onClick={onClose}>✕</button>
-        </div>
+        <button className="mobile-back" onClick={onClose}>✕</button>
       </div>
 
       {/* Agent filter pills */}
@@ -405,6 +396,13 @@ export default function Sidebar({
             ? <span>Showing {parentCount} of {totalParent}</span>
             : <span>{totalParent} sessions</span>;
         })()}
+        <button
+          className={`filter-btn ${showPinned ? 'active' : ''}`}
+          onClick={onTogglePinned}
+          style={{ marginLeft: 'auto', fontSize: 11, padding: '4px 12px' }}
+        >
+          📌 Pinned{pinCount > 0 ? ` (${pinCount})` : ''}
+        </button>
       </div>
       <div className="session-list">
         <Virtuoso
