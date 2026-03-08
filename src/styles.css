@@ -125,9 +125,10 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
 .msg:hover { opacity: 1 !important; }
 .msg { position: relative; }
 .msg-row { display: inline-flex; align-items: center; gap: 12px; max-width: 85%; overflow: hidden; }
-.mark-read-btn { opacity: 0; pointer-events: none; flex-shrink: 0; border-radius: var(--r-md); border: 1.5px solid var(--border); background: var(--bg-card); color: var(--accent); font-size: 11px; cursor: pointer; box-shadow: var(--shadow-sm); transition: opacity 0.15s, background 0.15s, color 0.15s; padding: 4px 8px; white-space: nowrap; font-family: inherit; }
+.msg-actions { display: flex; align-items: center; gap: 4px; opacity: 0; pointer-events: none; transition: opacity 0.15s; flex-shrink: 0; }
+.msg:hover .msg-actions { opacity: 1; pointer-events: auto; }
+.mark-read-btn { flex-shrink: 0; border-radius: var(--r-md); border: 1.5px solid var(--border); background: var(--bg-card); color: var(--accent); font-size: 11px; cursor: pointer; box-shadow: var(--shadow-sm); transition: background 0.15s, color 0.15s; padding: 4px 8px; white-space: nowrap; font-family: inherit; }
 .mark-read-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
-.msg:hover .mark-read-btn { opacity: 1; pointer-events: auto; }
 .msg.user { display: flex; justify-content: flex-end; }
 .msg.assistant { display: flex; justify-content: flex-start; }
 .bubble { padding: 14px 18px; border-radius: var(--r-lg); font-size: 14px; min-width: 0; max-width: 100%; overflow-wrap: anywhere; word-break: break-word; }
@@ -257,16 +258,17 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
   }
   .msg.user .msg-row { align-items: flex-end; }
   .msg.assistant .msg-row { align-items: flex-start; }
-  .msg-row .mark-read-btn,
-  .msg-row .pin-btn {
+  .msg .msg-actions {
     opacity: 0.6;
     pointer-events: auto;
+  }
+  .msg .msg-actions .mark-read-btn,
+  .msg .msg-actions .pin-btn {
     font-size: 10px;
     padding: 3px 8px;
-    align-self: flex-start;
   }
-  .msg.user .msg-row .mark-read-btn,
-  .msg.user .msg-row .pin-btn { align-self: flex-end; }
+  .msg.user .msg-actions { align-self: flex-end; }
+  .msg.assistant .msg-actions { align-self: flex-start; }
   .bubble { max-width: 100% !important; font-size: 13px; }
   .bubble .content pre { font-size: 11px; }
   .session-item { padding: 10px 16px; margin: 0 4px; }
@@ -313,7 +315,7 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
   transform: scale(.93);
 }
 .scroll-top-btn {
-  bottom: 60px;
+  top: 20px;
   right: 20px;
   background: var(--bg-card);
   color: var(--text-muted);
@@ -550,8 +552,6 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
 
 /* Pin button on messages */
 .pin-btn {
-  opacity: 0;
-  pointer-events: none;
   flex-shrink: 0;
   background: var(--bg-card);
   border: 1.5px solid var(--border);
@@ -559,15 +559,15 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
   padding: 4px 8px;
   font-size: 11px;
   cursor: pointer;
-  transition: opacity 0.15s, background 0.15s, border-color 0.15s;
+  transition: background 0.15s, border-color 0.15s;
   box-shadow: var(--shadow-sm);
   white-space: nowrap;
   font-family: inherit;
 }
-.msg:hover .pin-btn { opacity: 1; pointer-events: auto; }
 .pin-btn:hover { border-color: var(--accent); background: var(--accent-bg); }
-.pin-btn.pinned { opacity: 0.8; background: var(--accent-bg); border-color: var(--accent); pointer-events: auto; }
-.msg:hover .pin-btn.pinned { opacity: 1; }
+.pin-btn.pinned { background: var(--accent-bg); border-color: var(--accent); }
+.msg-actions:has(.pin-btn.pinned) { opacity: 0.8; pointer-events: auto; }
+.msg:hover .msg-actions:has(.pin-btn.pinned) { opacity: 1; }
 
 /* Pinned View */
 .pinned-view { flex: 1; display: flex; flex-direction: column; overflow: hidden; }

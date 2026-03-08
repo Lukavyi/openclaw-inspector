@@ -131,7 +131,7 @@ export default React.memo(function Message({ entry, isRead, dangerOnly, fileDang
     <div className={`msg ${role}${isRead ? ' read' : ''}`}>
       <div className="msg-row">
       {!dangerOnly && role === 'user' && (
-        <>
+        <div className="msg-actions">
           <button className="mark-read-btn" onClick={handleClick}>Checked to here</button>
           {(onPin || onUnpin) && entry.id && (
             <button
@@ -140,7 +140,7 @@ export default React.memo(function Message({ entry, isRead, dangerOnly, fileDang
               title={isPinned ? 'Unpin' : 'Pin'}
             >📌</button>
           )}
-        </>
+        </div>
       )}
       <div className={bubbleClass}>
         {time && <div className="time">{time}</div>}
@@ -196,7 +196,7 @@ export default React.memo(function Message({ entry, isRead, dangerOnly, fileDang
         })()}
       </div>
       {!dangerOnly && role !== 'user' && (
-        <>
+        <div className="msg-actions">
           {(onPin || onUnpin) && entry.id && (
             <button
               className={`pin-btn ${isPinned ? 'pinned' : ''}`}
@@ -205,7 +205,7 @@ export default React.memo(function Message({ entry, isRead, dangerOnly, fileDang
             >📌</button>
           )}
           <button className="mark-read-btn" onClick={handleClick}>Checked to here</button>
-        </>
+        </div>
       )}
       </div>
     </div>

@@ -44,6 +44,7 @@ export default function MessageViewer({
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState('');
   const [atBottom, setAtBottom] = useState(true);
+  const [atTop, setAtTop] = useState(false);
 
   const [showJumpBtn, setShowJumpBtn] = useState(false);
   const [msgTypeFilters, setMsgTypeFilters] = useState({
@@ -455,6 +456,7 @@ export default function MessageViewer({
               setAtBottom(bottom);
               if (bottom) { hasNewMessages.current = false; }
             }}
+            atTopStateChange={setAtTop}
             rangeChanged={handleRangeChanged}
             overscan={400}
             style={{ height: '100%' }}
@@ -477,21 +479,21 @@ export default function MessageViewer({
           title="Jump to last reviewed message"
         >🔖 Last reviewed</button>
       )}
+      {!atTop && (
+        <button
+          className="floating-btn scroll-top-btn"
+          onClick={() => {
+            virtuosoRef.current?.scrollToIndex({ index: 0, behavior: 'smooth' });
+          }}
+        >↑</button>
+      )}
       {!atBottom && (
-        <>
-          <button
-            className="floating-btn scroll-top-btn"
-            onClick={() => {
-              virtuosoRef.current?.scrollToIndex({ index: 0, behavior: 'smooth' });
-            }}
-          >↑</button>
-          <button
-            className="floating-btn new-msg-btn"
-            onClick={() => {
-              virtuosoRef.current?.scrollToIndex({ index: visibleEntries.length - 1, behavior: 'smooth' });
-            }}
-          >↓</button>
-        </>
+        <button
+          className="floating-btn new-msg-btn"
+          onClick={() => {
+            virtuosoRef.current?.scrollToIndex({ index: visibleEntries.length - 1, behavior: 'smooth' });
+          }}
+        >↓</button>
       )}
     </>
   );
