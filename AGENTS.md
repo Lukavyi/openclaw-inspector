@@ -27,5 +27,5 @@
 3. `npx vite build` — clean build
 4. Manual verification on `http://localhost:9100`
 5. `git commit` + `git push`
-6. Update beads: `bd close` / `bd sync`
+6. Update Linear: move issue to Done + comment
 7. Ask user: "Publish to npm?"
